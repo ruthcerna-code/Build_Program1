@@ -1,0 +1,29 @@
+{
+  "entities": {
+    "Quote": {
+      "collection": "quotes",
+      "fields": {
+        "folio": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "clientAddress": { "type": "string" },
+        "clientCity": { "type": "string" },
+        "propertyType": { "type": "string" },
+        "clientComments": { "type": "string" },
+        "tentativeDate1": { "type": "string" },
+        "tentativeTime1": { "type": "string" },
+        "tentativeDate2": { "type": "string" },
+        "tentativeTime2": { "type": "string" },
+        "totalAreaM2": { "type": "number" },
+        "status": { "type": "string" },
+        "acceptedAt": { "type": "string" },
+        "windows": { "type": "array" },
+        "adminQuote": { "type": "object" },
+        "installerAssignment": { "type": "object" },
+        "technicianExecution": { "type": "object" }
+      }
+    }
+  }
+}

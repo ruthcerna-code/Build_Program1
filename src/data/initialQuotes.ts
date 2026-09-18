@@ -1,0 +1,238 @@
+import { QuoteRequest } from '../types';
+
+export const INITIAL_QUOTES: QuoteRequest[] = [
+  {
+    id: 'quote-seed-1',
+    folio: 'COT-2026-1042',
+    createdAt: '2026-09-10T14:30:00.000Z',
+    clientName: 'Camila Morales Vega',
+    clientEmail: 'camila.morales@example.com',
+    clientPhone: '+56 9 8765 4321',
+    clientAddress: 'Av. Providencia 1450, Depto 804',
+    clientCity: 'Santiago',
+    propertyType: 'departamento',
+    clientComments: 'Tengo un gato curioso y un bebé de 1 año. Necesito que no se vea oscura la habitación.',
+    tentativeDate1: '2026-09-15',
+    tentativeTime1: '10:00',
+    tentativeDate2: '2026-09-17',
+    tentativeTime2: '15:30',
+    totalAreaM2: 5.6,
+    status: 'pendiente',
+    windows: [
+      {
+        id: 'win-1',
+        name: 'Dormitorio Principal',
+        height: 1.4,
+        width: 2.0,
+        unit: 'm',
+        meshType: 'monofilamento',
+        area: 2.8,
+        notes: 'Ventana de dos hojas correderas'
+      },
+      {
+        id: 'win-2',
+        name: 'Dormitorio Bebé',
+        height: 1.4,
+        width: 2.0,
+        unit: 'm',
+        meshType: 'monofilamento',
+        area: 2.8,
+        notes: 'Malla con perfil de aluminio blanco'
+      }
+    ]
+  },
+  {
+    id: 'quote-seed-2',
+    folio: 'COT-2026-1039',
+    createdAt: '2026-09-09T18:15:00.000Z',
+    clientName: 'Ignacio Riquelme Soto',
+    clientEmail: 'ignacio.riquelme@example.com',
+    clientPhone: '+56 9 7654 3210',
+    clientAddress: 'Calle Las Condes 9200, Piso 12',
+    clientCity: 'Las Condes',
+    propertyType: 'departamento',
+    clientComments: 'Balcón completo y ventana de sala de estar.',
+    tentativeDate1: '2026-09-14',
+    tentativeTime1: '09:00',
+    tentativeDate2: '2026-09-16',
+    tentativeTime2: '14:00',
+    totalAreaM2: 9.35,
+    status: 'cotizada',
+    windows: [
+      {
+        id: 'win-3',
+        name: 'Balcón Terraza',
+        height: 1.7,
+        width: 4.5,
+        unit: 'm',
+        meshType: 'multifilamento',
+        area: 7.65,
+        notes: 'Requiere anclaje a cielo y baranda'
+      },
+      {
+        id: 'win-4',
+        name: 'Ventanal Living',
+        height: 1.7,
+        width: 1.0,
+        unit: 'm',
+        meshType: 'multifilamento',
+        area: 1.7,
+      }
+    ],
+    adminQuote: {
+      pricePerM2: 19500,
+      meshTotalCost: 182325,
+      profilesAndFixingsCost: 35000,
+      laborAndInstallCost: 45000,
+      discountPercentage: 5,
+      discountAmount: 13116,
+      subtotal: 249209,
+      includeTax: true,
+      taxAmount: 47350,
+      total: 296559,
+      warrantyYears: 2,
+      estimatedTime: '3 horas de instalación en terreno',
+      adminNotes: 'Incluye perfiles de aluminio color mate y anclajes con tarugos expansivos Fischer para concreto.',
+      sentAt: '2026-09-09T19:40:00.000Z',
+      sentToEmail: 'ignacio.riquelme@example.com',
+      selectedScheduleOption: 'opcion_1',
+      confirmedInstallationDate: '2026-09-14',
+      confirmedInstallationTime: '09:00'
+    }
+  },
+  {
+    id: 'quote-seed-3',
+    folio: 'COT-2026-1035',
+    createdAt: '2026-09-08T11:00:00.000Z',
+    clientName: 'Daniela Valenzuela Paz',
+    clientEmail: 'daniela.valenzuela@example.com',
+    clientPhone: '+56 9 6543 2109',
+    clientAddress: 'Av. El Bosque Norte 0340, Depto 502',
+    clientCity: 'Las Condes',
+    propertyType: 'departamento',
+    clientComments: 'Instalación urgente para balcón por llegada de cachorro.',
+    tentativeDate1: '2026-09-12',
+    tentativeTime1: '11:00',
+    tentativeDate2: '2026-09-13',
+    tentativeTime2: '16:00',
+    totalAreaM2: 6.8,
+    status: 'aceptada',
+    acceptedAt: '2026-09-09T10:15:00.000Z',
+    windows: [
+      {
+        id: 'win-5',
+        name: 'Balcón Principal',
+        height: 1.7,
+        width: 4.0,
+        unit: 'm',
+        meshType: 'monofilamento',
+        area: 6.8,
+        notes: 'Malla monofilamento transparente de 0.8 mm'
+      }
+    ],
+    adminQuote: {
+      pricePerM2: 21000,
+      meshTotalCost: 142800,
+      profilesAndFixingsCost: 28000,
+      laborAndInstallCost: 35000,
+      discountPercentage: 0,
+      discountAmount: 0,
+      subtotal: 205800,
+      includeTax: true,
+      taxAmount: 39102,
+      total: 244902,
+      warrantyYears: 3,
+      estimatedTime: '2 horas y media',
+      adminNotes: 'Aceptado por cliente en horario matutino.',
+      sentAt: '2026-09-08T15:20:00.000Z',
+      sentToEmail: 'daniela.valenzuela@example.com',
+      selectedScheduleOption: 'opcion_1',
+      confirmedInstallationDate: '2026-09-12',
+      confirmedInstallationTime: '11:00'
+    },
+    installerAssignment: {
+      technicianName: 'Claudio Soto',
+      technicianPhone: '+56 9 7123 4567',
+      technicianRole: 'Técnico Especialista en Altura',
+      assignedAt: '2026-09-09T11:00:00.000Z',
+      installationStatus: 'en_camino',
+      assignmentNotes: 'Llevar arnés de seguridad certificado y taladro percutor con broca de 8mm.'
+    }
+  },
+  {
+    id: 'quote-seed-4',
+    folio: 'COT-2026-1048',
+    createdAt: '2026-09-11T09:30:00.000Z',
+    clientName: 'Ruth Cerna',
+    clientEmail: 'ruth.cerna@gmail.com',
+    clientPhone: '+56 9 9123 4567',
+    clientAddress: 'Av. Apoquindo 4500, Depto 1102',
+    clientCity: 'Las Condes, Santiago',
+    propertyType: 'departamento',
+    clientComments: 'Instalación urgente de mallas de protección para balcón principal y dormitorio.',
+    tentativeDate1: '2026-09-18',
+    tentativeTime1: '10:00',
+    tentativeDate2: '2026-09-20',
+    tentativeTime2: '15:00',
+    totalAreaM2: 7.2,
+    status: 'aceptada',
+    acceptedAt: '2026-09-11T12:00:00.000Z',
+    windows: [
+      {
+        id: 'win-ruth-1',
+        name: 'Balcón Principal',
+        height: 1.6,
+        width: 3.5,
+        unit: 'm',
+        meshType: 'monofilamento',
+        area: 5.6,
+        notes: 'Malla monofilamento transparente de alta resistencia 0.8mm'
+      },
+      {
+        id: 'win-ruth-2',
+        name: 'Dormitorio Principal',
+        height: 1.0,
+        width: 1.6,
+        unit: 'm',
+        meshType: 'monofilamento',
+        area: 1.6,
+        notes: 'Ventana de aluminio blanco'
+      }
+    ],
+    adminQuote: {
+      pricePerM2: 21000,
+      meshTotalCost: 151200,
+      profilesAndFixingsCost: 32000,
+      laborAndInstallCost: 38000,
+      discountPercentage: 0,
+      discountAmount: 0,
+      subtotal: 221200,
+      includeTax: true,
+      taxAmount: 42028,
+      total: 263228,
+      warrantyYears: 3,
+      estimatedTime: '2 horas y media',
+      adminNotes: 'Aprobado y confirmado por cliente Ruth Cerna.',
+      sentAt: '2026-09-11T10:15:00.000Z',
+      sentToEmail: 'ruth.cerna@gmail.com',
+      selectedScheduleOption: 'opcion_1',
+      confirmedInstallationDate: '2026-09-18',
+      confirmedInstallationTime: '10:00'
+    },
+    installerAssignment: {
+      technicianName: 'Claudio Soto',
+      technicianPhone: '+56 9 7123 4567',
+      technicianRole: 'Técnico Especialista en Altura',
+      assignedAt: '2026-09-11T12:30:00.000Z',
+      installationStatus: 'en_camino',
+      assignmentNotes: 'Cliente solicita confirmación 30 min antes de llegar. Llevar brocas especiales de concreto.'
+    },
+    technicianExecution: {
+      status: 'solicitud_aceptada',
+      acceptedAt: '2026-09-11T13:00:00.000Z',
+      technicianName: 'Claudio Soto',
+      notes: 'Materiales revisados y programado en ruta para horario matutino.'
+    }
+  }
+];
+

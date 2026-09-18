@@ -1,0 +1,6 @@
+{
+  "name": "MallasSeguras - Cotizador de Mallas de Seguridad",
+  "description": "Sistema de cotización y gestión de mallas de seguridad en 5 pantallas: solicitud con fechas tentativas, recepción admin y envío de presupuesto, cotizaciones recibidas por el cliente, cotizaciones aprobadas con asignación de instalador, y recepción de pedidos por técnicos con notas y confirmación de trabajo realizado.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
