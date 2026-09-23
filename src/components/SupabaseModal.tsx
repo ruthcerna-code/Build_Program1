@@ -17,7 +17,11 @@ import {
   UploadCloud,
   DownloadCloud,
   Flame,
-  Cloud
+  Cloud,
+  Layers,
+  FileJson,
+  Eye,
+  FolderTree
 } from 'lucide-react';
 import {
   getSupabaseConfig,
@@ -52,10 +56,11 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
   currentUser,
   onQuotesSynced,
 }) => {
-  const [activeTab, setActiveTab] = useState<'firebase' | 'supabase'>('firebase');
+  const [activeTab, setActiveTab] = useState<'firebase' | 'datamodel' | 'supabase'>('firebase');
   const [supabaseCfg, setSupabaseCfg] = useState(getSupabaseConfig());
   const [urlInput, setUrlInput] = useState(supabaseCfg.url || '');
   const [keyInput, setKeyInput] = useState(supabaseCfg.anonKey || '');
+  const [selectedDocId, setSelectedDocId] = useState<string>('');
   
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -304,8 +309,27 @@ create policy "Permitir acceso publico" on public.quotes
             }`}
           >
             <Flame className="w-4 h-4 text-amber-500" />
-            <span>Google Firebase (Activo)</span>
+            <span>Google Firebase</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('datamodel');
+              setTestResult(null);
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 font-bold rounded-t-xl border-t border-x transition-all ${
+              activeTab === 'datamodel'
+                ? 'bg-white border-slate-200 text-sky-600 shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <FolderTree className="w-4 h-4 text-sky-600" />
+            <span>Modelo de Datos (Schema)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-sky-100 text-sky-800 font-bold">
+              Firestore
+            </span>
           </button>
 
           <button
@@ -448,6 +472,227 @@ create policy "Permitir acceso publico" on public.quotes
                   <div className="p-2.5 rounded-xl bg-white border border-amber-300 text-[11px] font-medium text-slate-800 mt-2">
                     {syncFeedback}
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: DATA MODEL (FIRESTORE SCHEMA & DOCUMENT INSPECTOR) */}
+          {activeTab === 'datamodel' && (
+            <div className="space-y-5">
+              {/* How to access in Firebase Console Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Flame className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>Ver Base de Datos en la Consola Oficial de Firebase</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        Proyecto: <strong className="text-slate-800">{firebaseInfo.projectId}</strong> • Base de datos: <span className="font-mono text-sky-800 text-[10px]">ai-studio-mallassegurascot...</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`https://console.firebase.google.com/project/${firebaseInfo.projectId}/firestore/databases/${firebaseInfo.databaseId}/data`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+                  >
+                    <span>Abrir en Firebase Console</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-sky-200/70 text-[11px] text-slate-600 space-y-1">
+                  <p className="font-semibold text-slate-800">Pasos para navegar en la consola de Firebase:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-slate-700 pl-1">
+                    <li>Inicia sesión con tu cuenta de Google (<strong className="text-sky-700">ruth.cerna@gmail.com</strong>).</li>
+                    <li>En el menú izquierdo, haz clic en <strong>Build &gt; Firestore Database</strong>.</li>
+                    <li>En el selector superior de base de datos, confirma que esté seleccionada <strong className="text-slate-900">{firebaseInfo.databaseId}</strong>.</li>
+                    <li>Haz clic en la colección <strong className="font-mono text-amber-800 bg-amber-100 px-1 rounded">quotes</strong> para ver todos los documentos y editar sus campos.</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Data Model Visual Diagram */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-sky-600" />
+                    <h4 className="font-bold text-slate-900 text-xs">Esquema de Colecciones (Firestore Schema)</h4>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">Document-oriented NoSQL</span>
+                </div>
+
+                {/* Collection: quotes */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                  <div className="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FolderTree className="w-4 h-4 text-amber-400" />
+                      <span className="font-mono font-bold text-amber-400">/quotes</span>
+                      <span className="text-slate-400 text-[11px] font-sans">
+                        &#123;quoteId&#125; (Colección Principal)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      En producción
+                    </span>
+                  </div>
+
+                  <div className="p-4 space-y-3 divide-y divide-slate-100 text-[11px]">
+                    {/* Identification */}
+                    <div className="space-y-1.5 pt-1">
+                      <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block text-sky-700">
+                        1. Identificación y Estado
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
+                        <div><code className="text-slate-900 font-bold">id:</code> <span className="text-slate-500">string (UUID único)</span></div>
+                        <div><code className="text-slate-900 font-bold">folio:</code> <span className="text-slate-500">string (COT-2026-XXXX)</span></div>
+                        <div><code className="text-slate-900 font-bold">createdAt:</code> <span className="text-slate-500">string ISO 8601</span></div>
+                        <div><code className="text-slate-900 font-bold">status:</code> <span className="text-amber-700 font-semibold">'pendiente' | 'cotizada' | 'aceptada' | 'rechazada'</span></div>
+                        <div><code className="text-slate-900 font-bold">acceptedAt:</code> <span className="text-slate-500">string ISO (opcional)</span></div>
+                      </div>
+                    </div>
+
+                    {/* Client info */}
+                    <div className="space-y-1.5 pt-2.5">
+                      <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block text-sky-700">
+                        2. Datos del Cliente & Contacto
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
+                        <div><code className="text-slate-900 font-bold">clientName:</code> <span className="text-slate-500">string</span></div>
+                        <div><code className="text-slate-900 font-bold">clientEmail:</code> <span className="text-sky-700 font-semibold">string (con índice)</span></div>
+                        <div><code className="text-slate-900 font-bold">clientPhone:</code> <span className="text-slate-500">string</span></div>
+                        <div><code className="text-slate-900 font-bold">clientAddress:</code> <span className="text-slate-500">string</span></div>
+                        <div><code className="text-slate-900 font-bold">clientCity:</code> <span className="text-slate-500">string</span></div>
+                        <div><code className="text-slate-900 font-bold">propertyType:</code> <span className="text-slate-500">string ('departamento' | 'casa' | ...)</span></div>
+                        <div className="sm:col-span-2"><code className="text-slate-900 font-bold">clientComments:</code> <span className="text-slate-500">string</span></div>
+                      </div>
+                    </div>
+
+                    {/* Schedule */}
+                    <div className="space-y-1.5 pt-2.5">
+                      <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block text-sky-700">
+                        3. Agendamiento Tentativo
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-2">
+                        <div><code className="text-slate-900 font-bold">tentativeDate1 / tentativeTime1:</code> <span className="text-slate-500">string (Opción 1)</span></div>
+                        <div><code className="text-slate-900 font-bold">tentativeDate2 / tentativeTime2:</code> <span className="text-slate-500">string (Opción 2)</span></div>
+                      </div>
+                    </div>
+
+                    {/* Windows array */}
+                    <div className="space-y-1.5 pt-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block text-sky-700">
+                          4. Medidas y Ventanas (<code className="text-sky-900">windows[]</code>)
+                        </span>
+                        <span className="text-slate-500 text-[10.5px]">totalAreaM2: <strong>number</strong></span>
+                      </div>
+                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-mono text-[10.5px] text-slate-700">
+                        Array&lt;&#123; id: string, name: string, widthM: number, heightM: number, quantity: number, areaM2: number &#125;&gt;
+                      </div>
+                    </div>
+
+                    {/* Admin quote object */}
+                    <div className="space-y-1.5 pt-2.5">
+                      <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block text-sky-700">
+                        5. Presupuesto Administrativo (<code className="text-sky-900">adminQuote</code>)
+                      </span>
+                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-1.5 font-mono text-[10.5px]">
+                        <div>pricePerM2: number</div>
+                        <div>meshTotalCost: number</div>
+                        <div>profilesAndFixingsCost: number</div>
+                        <div>laborAndInstallCost: number</div>
+                        <div>subtotal / total: number</div>
+                        <div>discountPercentage: number</div>
+                        <div>warrantyYears: number (2-3 años)</div>
+                        <div>estimatedTime: string</div>
+                        <div>confirmedInstallationDate: string</div>
+                        <div>adminNotes: string</div>
+                      </div>
+                    </div>
+
+                    {/* Installer assignment & execution */}
+                    <div className="space-y-1.5 pt-2.5">
+                      <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block text-sky-700">
+                        6. Asignación & Ejecución Técnica (<code className="text-sky-900">installerAssignment</code> & <code className="text-sky-900">technicianExecution</code>)
+                      </span>
+                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1 text-[10.5px]">
+                        <div><strong className="font-mono text-slate-800">installerAssignment:</strong> &#123; installerName, installerRut, installerPhone, scheduledDate, installationStatus: 'asignado' | 'en_camino' | 'instalado' &#125;</div>
+                        <div><strong className="font-mono text-slate-800">technicianExecution:</strong> &#123; status: 'pendiente_aceptar' | 'solicitud_aceptada' | 'trabajo_realizado', notes, completedAt, photoUrl &#125;</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collection: users */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                  <div className="px-4 py-2 bg-slate-800 text-white flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <FolderTree className="w-3.5 h-3.5 text-sky-400" />
+                      <span className="font-mono font-bold text-sky-400">/users</span>
+                      <span className="text-slate-400 text-[11px] font-sans">&#123;userId&#125; (Cuentas de Acceso)</span>
+                    </div>
+                  </div>
+                  <div className="p-3 text-[11px] grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 pl-4">
+                    <div><code className="font-bold text-slate-900">id:</code> string</div>
+                    <div><code className="font-bold text-slate-900">email:</code> string</div>
+                    <div><code className="font-bold text-slate-900">fullName:</code> string</div>
+                    <div><code className="font-bold text-slate-900">role:</code> 'admin' | 'tecnico' | 'cliente'</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Document JSON Inspector */}
+              <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <FileJson className="w-4 h-4 text-emerald-400" />
+                    <h4 className="font-bold text-xs text-white">Inspeccionar Documento Real en Vivo</h4>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <select
+                      value={selectedDocId}
+                      onChange={(e) => setSelectedDocId(e.target.value)}
+                      aria-label="Seleccionar documento a inspeccionar"
+                      className="bg-slate-800 border border-slate-700 text-slate-200 text-[11px] rounded-xl px-2.5 py-1.5 focus:ring-1 focus:ring-sky-500 w-full sm:w-60"
+                    >
+                      <option value="">Seleccionar una cotización...</option>
+                      {getStoredQuotes().map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.folio} - {q.clientName} ({q.status})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {selectedDocId ? (
+                  (() => {
+                    const found = getStoredQuotes().find((q) => q.id === selectedDocId);
+                    if (!found) return null;
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span>Ruta Firestore: <strong className="font-mono text-amber-400">quotes/{found.id}</strong></span>
+                          <span>Cliente: <strong className="text-white">{found.clientEmail}</strong></span>
+                        </div>
+                        <pre className="p-3 bg-slate-950 rounded-xl text-[10.5px] font-mono text-emerald-300 overflow-x-auto max-h-56 border border-slate-800">
+                          {JSON.stringify(found, null, 2)}
+                        </pre>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic">
+                    Selecciona una cotización en el menú desplegable para ver su estructura JSON exacta guardada en Firestore.
+                  </p>
                 )}
               </div>
             </div>

@@ -1,29 +1,76 @@
 {
   "entities": {
     "Quote": {
-      "collection": "quotes",
-      "fields": {
-        "folio": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "clientName": { "type": "string" },
-        "clientEmail": { "type": "string" },
-        "clientPhone": { "type": "string" },
-        "clientAddress": { "type": "string" },
-        "clientCity": { "type": "string" },
-        "propertyType": { "type": "string" },
-        "clientComments": { "type": "string" },
-        "tentativeDate1": { "type": "string" },
-        "tentativeTime1": { "type": "string" },
-        "tentativeDate2": { "type": "string" },
-        "tentativeTime2": { "type": "string" },
-        "totalAreaM2": { "type": "number" },
-        "status": { "type": "string" },
-        "acceptedAt": { "type": "string" },
-        "windows": { "type": "array" },
-        "adminQuote": { "type": "object" },
-        "installerAssignment": { "type": "object" },
-        "technicianExecution": { "type": "object" }
-      }
+      "title": "Quote",
+      "description": "Cotización de mallas de seguridad, detalles técnicos, presupuestos y asignación de instalación",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador único de la cotización" },
+        "folio": { "type": "string", "description": "Folio legible único de la cotización (ej: COT-2026-1234)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Fecha y hora de creación ISO 8601" },
+        "clientName": { "type": "string", "description": "Nombre completo del cliente" },
+        "clientEmail": { "type": "string", "format": "email", "description": "Correo electrónico del cliente" },
+        "clientPhone": { "type": "string", "description": "Teléfono de contacto del cliente" },
+        "clientAddress": { "type": "string", "description": "Dirección física de instalación" },
+        "clientCity": { "type": "string", "description": "Comuna o ciudad" },
+        "propertyType": { "type": "string", "description": "Tipo de propiedad (departamento, casa, etc.)" },
+        "clientComments": { "type": "string", "description": "Observaciones adicionales del cliente" },
+        "tentativeDate1": { "type": "string", "description": "Primera fecha tentativa de instalación" },
+        "tentativeTime1": { "type": "string", "description": "Horario tentativo opción 1" },
+        "tentativeDate2": { "type": "string", "description": "Segunda fecha alternativa" },
+        "tentativeTime2": { "type": "string", "description": "Horario tentativo opción 2" },
+        "totalAreaM2": { "type": "number", "description": "Superficie total en metros cuadrados calculada" },
+        "status": {
+          "type": "string",
+          "enum": ["pendiente", "cotizada", "aceptada", "rechazada"],
+          "description": "Estado actual en el flujo de 5 etapas"
+        },
+        "acceptedAt": { "type": "string", "description": "Fecha y hora en que el cliente aprobó la cotización" },
+        "windows": {
+          "type": "array",
+          "description": "Lista de ventanas, balcones o terrazas con medidas ancho x alto y subtotales m2"
+        },
+        "adminQuote": {
+          "type": "object",
+          "description": "Detalle presupuestario fijado por administración (costo mallas, perfiles, mano de obra, descuentos, total)"
+        },
+        "installerAssignment": {
+          "type": "object",
+          "description": "Asignación de instalador técnico, fecha confirmada y estado de ruta"
+        },
+        "technicianExecution": {
+          "type": "object",
+          "description": "Registro de ejecución técnica, notas de instalación y confirmación de trabajo realizado"
+        }
+      },
+      "required": ["id", "folio", "createdAt", "clientName", "clientEmail", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Cuenta de usuario del sistema (Administrador, Técnico o Cliente)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador de usuario" },
+        "email": { "type": "string", "format": "email", "description": "Correo de acceso" },
+        "fullName": { "type": "string", "description": "Nombre y apellido del usuario" },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "tecnico", "cliente"],
+          "description": "Rol de permisos en el sistema"
+        },
+        "phone": { "type": "string", "description": "Teléfono de contacto" }
+      },
+      "required": ["id", "email", "fullName", "role"]
+    }
+  },
+  "firestore": {
+    "/quotes/{quoteId}": {
+      "schema": "Quote",
+      "description": "Colección de cotizaciones, pedidos y órdenes de instalación en tiempo real"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Perfiles y roles de usuarios registrados"
     }
   }
 }
