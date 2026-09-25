@@ -185,6 +185,61 @@ export const syncAllLocalQuotesToFirestore = async (
 };
 
 /**
+ * Saves a user connectivity and access log record to Firestore.
+ */
+export const saveAccessLogInFirestore = async (log: any): Promise<boolean> => {
+  const db = getFirestoreDb();
+  if (!db) return false;
+
+  try {
+    const logRef = doc(db, 'access_logs', log.id);
+    const cleanLog = JSON.parse(JSON.stringify(log));
+    await setDoc(logRef, cleanLog, { merge: true });
+    return true;
+  } catch (err) {
+    console.error('Error saving access log to Firestore:', err);
+    return false;
+  }
+};
+
+/**
+ * Fetches all user connectivity and access logs from Firestore.
+ */
+export const fetchAccessLogsFromFirestore = async (): Promise<any[] | null> => {
+  const db = getFirestoreDb();
+  if (!db) return null;
+
+  try {
+    const logsCol = collection(db, 'access_logs');
+    const q = query(logsCol, orderBy('connectedAt', 'desc'), limit(100));
+    const snapshot = await getDocs(q);
+    const logs: any[] = [];
+    snapshot.forEach((docSnap) => {
+      logs.push(docSnap.data());
+    });
+    return logs;
+  } catch (err) {
+    console.warn('Error fetching access logs ordered from Firestore:', err);
+    try {
+      const logsCol = collection(db, 'access_logs');
+      const snapshot = await getDocs(logsCol);
+      const logs: any[] = [];
+      snapshot.forEach((docSnap) => {
+        logs.push(docSnap.data());
+      });
+      logs.sort(
+        (a, b) =>
+          new Date(b.connectedAt).getTime() - new Date(a.connectedAt).getTime()
+      );
+      return logs;
+    } catch (fallbackErr) {
+      console.error('Failed to fetch access logs fallback:', fallbackErr);
+      return null;
+    }
+  }
+};
+
+/**
  * Tests live connection to Firestore.
  */
 export const testFirestoreConnection = async (): Promise<{

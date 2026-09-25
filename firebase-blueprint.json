@@ -41,6 +41,10 @@
         "technicianExecution": {
           "type": "object",
           "description": "Registro de ejecución técnica, notas de instalación y confirmación de trabajo realizado"
+        },
+        "emailDispatch": {
+          "type": "object",
+          "description": "Despacho automatizado de la cotización formateada a rcv.informacion@gmail.com y copia al cliente"
         }
       },
       "required": ["id", "folio", "createdAt", "clientName", "clientEmail", "status"]
@@ -61,6 +65,32 @@
         "phone": { "type": "string", "description": "Teléfono de contacto" }
       },
       "required": ["id", "email", "fullName", "role"]
+    },
+    "UserAccessLog": {
+      "title": "UserAccessLog",
+      "description": "Registro de accesos de usuarios, hora de conectividad y cotizaciones realizadas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Identificador único del registro de acceso" },
+        "userId": { "type": "string", "description": "Identificador o correo del usuario" },
+        "userEmail": { "type": "string", "format": "email", "description": "Correo electrónico del usuario" },
+        "userName": { "type": "string", "description": "Nombre completo del usuario" },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "tecnico", "cliente"],
+          "description": "Rol del usuario al conectarse"
+        },
+        "connectedAt": { "type": "string", "format": "date-time", "description": "Fecha y hora exacta de conectividad" },
+        "action": {
+          "type": "string",
+          "enum": ["login", "connectivity_ping", "quote_created", "logout"],
+          "description": "Acción o tipo de acceso registrado"
+        },
+        "quotesCount": { "type": "number", "description": "Cantidad de cotizaciones realizadas por este usuario" },
+        "quoteFolios": { "type": "array", "description": "Lista de folios de cotizaciones creadas" },
+        "deviceInfo": { "type": "string", "description": "Dispositivo o navegador utilizado" }
+      },
+      "required": ["id", "userEmail", "connectedAt", "action"]
     }
   },
   "firestore": {
@@ -71,6 +101,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "Perfiles y roles de usuarios registrados"
+    },
+    "/access_logs/{logId}": {
+      "schema": "UserAccessLog",
+      "description": "Registro de accesos de usuarios, hora de conectividad y cotizaciones realizadas en BD"
     }
   }
 }

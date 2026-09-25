@@ -81,8 +81,24 @@ export interface QuoteRequest {
   // Assignment of installer for approved quotes
   installerAssignment?: InstallerAssignment;
   acceptedAt?: string;
+  // Payment tracking for dashboard
+  paidAmount?: number;
+  paymentStatus?: 'pendiente' | 'abono_parcial' | 'pagado_total';
+  paymentMethod?: string;
+  paymentNotes?: string;
   // Technical execution by installer
   technicianExecution?: TechnicianExecution;
+  // Automated email dispatch to rcv.informacion@gmail.com and client copy
+  emailDispatch?: QuoteEmailDispatch;
+}
+
+export interface QuoteEmailDispatch {
+  toCompany: string; // rcv.informacion@gmail.com
+  toClient: string;  // client email
+  sentAt: string;
+  companyDelivered: boolean;
+  clientDelivered: boolean;
+  formattedContent: string;
 }
 
 export type UserRole = 'admin' | 'cliente' | 'tecnico';
@@ -105,5 +121,23 @@ export interface PasswordRecoveryMail {
   provisionalPassword: string;
   sentAt: string;
   expiresInMinutes: number;
+}
+
+export type AccessActionType = 'login' | 'connectivity_ping' | 'quote_created' | 'logout';
+
+export interface UserAccessLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  role: UserRole;
+  connectedAt: string; // ISO 8601 date-time
+  connectivityTimestamp: number; // ms
+  action: AccessActionType;
+  actionDescription: string;
+  quotesCount: number;
+  quoteFolios: string[];
+  deviceInfo?: string;
+  ipAddress?: string;
 }
 

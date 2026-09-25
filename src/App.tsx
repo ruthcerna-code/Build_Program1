@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Header, AppView } from './components/Header';
 import { HomeClientView } from './components/HomeClientView';
+import { QuoteMeshView } from './components/QuoteMeshView';
 import { AdminQuotesView } from './components/AdminQuotesView';
 import { ClientReceivedQuotesView } from './components/ClientReceivedQuotesView';
 import { ApprovedQuotesView } from './components/ApprovedQuotesView';
@@ -8,6 +9,7 @@ import { TechnicianOrdersView } from './components/TechnicianOrdersView';
 import { ClientQuotePortalView } from './components/ClientQuotePortalView';
 import { AdminQuoteEditorModal } from './components/AdminQuoteEditorModal';
 import { LoginModal, AuthMode } from './components/LoginModal';
+import { GmailConnectModal } from './components/GmailConnectModal';
 import { SupabaseModal } from './components/SupabaseModal';
 import {
   QuoteRequest,
@@ -22,6 +24,8 @@ import {
   updateQuoteWithAdminDetails,
   deleteQuoteRequest,
   updateQuoteStatus,
+  registerQuoteAcceptance,
+  updateQuotePayment,
   assignInstallerToQuote,
   unassignInstallerFromQuote,
   updateTechnicianExecution,
@@ -29,7 +33,8 @@ import {
   syncWithCloudDatabases,
 } from './services/quoteStorage';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { getCurrentUser, logoutUser } from './services/authStorage';
+import { getCurrentUser, logoutUser, isUserGmailConnected, isUserAdmin } from './services/authStorage';
+import { recordUserAccessLog } from './services/accessLogService';
 import {
   ShieldCheck,
   Phone,
@@ -57,6 +62,7 @@ export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => getCurrentUser());
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState<AuthMode>('login');
   const [authToast, setAuthToast] = useState<string | null>(null);
 
@@ -94,6 +100,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    if (currentUser) {
+      recordUserAccessLog(currentUser, 'logout', `Cierre de sesión: ${currentUser.email}`);
+    }
     logoutUser();
     setCurrentUser(null);
     setAuthToast('Has cerrado sesión correctamente.');
@@ -102,8 +111,27 @@ export default function App() {
 
   const handleAuthSuccess = (user: UserAccount, message: string) => {
     setCurrentUser(user);
+    recordUserAccessLog(user, 'login', `Inicio de sesión exitoso: ${user.fullName} (${user.role})`);
     setAuthToast(message);
     setTimeout(() => setAuthToast(null), 4500);
+  };
+
+  const handleNavigateToQuoteMesh = () => {
+    if (currentUser && currentUser.email && currentUser.email.toLowerCase().endsWith('@gmail.com')) {
+      setCurrentView('quote_mesh');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setIsGmailModalOpen(true);
+    }
+  };
+
+  const handleGmailConnected = (user: UserAccount) => {
+    setCurrentUser(user);
+    recordUserAccessLog(user, 'login', `Autenticación con cuenta Gmail: ${user.email}`);
+    setCurrentView('quote_mesh');
+    setAuthToast(`¡Conectado con cuenta Gmail: ${user.email}! Ya puedes ingresar los datos de tu cotización.`);
+    setTimeout(() => setAuthToast(null), 4500);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Load initial quotes and listen for updates
@@ -127,6 +155,18 @@ export default function App() {
       window.removeEventListener('mallas_quotes_updated', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
     };
+  }, []);
+
+  // Record connectivity timestamp in database on application start
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      recordUserAccessLog(
+        user,
+        'connectivity_ping',
+        `Conectividad registrada en sistema: ${user.fullName} (${user.email})`
+      );
+    }
   }, []);
 
   const pendingQuotesCount = quotes.filter((q) => q.status === 'pendiente').length;
@@ -159,6 +199,21 @@ export default function App() {
     setLastCreatedQuote(newQuote);
     setSelectedQuoteForPortal(newQuote);
     setShowSuccessModal(true);
+
+    // Record user connectivity and quote creation in Firestore database log
+    recordUserAccessLog(
+      currentUser || {
+        id: newQuote.clientEmail,
+        email: newQuote.clientEmail,
+        fullName: newQuote.clientName,
+        role: 'cliente',
+        passwordHash: '',
+        createdAt: new Date().toISOString(),
+      },
+      'quote_created',
+      `Cotización realizada: Folio ${newQuote.folio} (${newQuote.windows.length} ventanas, ${newQuote.totalAreaM2} m²)`,
+      newQuote.folio
+    );
   };
 
   const handleSaveAdminQuote = (quoteId: string, details: AdminQuoteDetails) => {
@@ -191,12 +246,29 @@ export default function App() {
   };
 
   const handleAcceptQuote = (quoteId: string) => {
-    const updated = updateQuoteStatus(quoteId, 'aceptada');
+    const updated = registerQuoteAcceptance(quoteId);
     setQuotes(updated);
     const target = updated.find((q) => q.id === quoteId);
     if (target) {
       setSelectedQuoteForPortal(target);
     }
+  };
+
+  const handleUpdatePayment = (
+    quoteId: string,
+    paidAmount: number,
+    paymentStatus?: 'pendiente' | 'abono_parcial' | 'pagado_total',
+    paymentMethod?: string,
+    paymentNotes?: string
+  ) => {
+    const updated = updateQuotePayment(
+      quoteId,
+      paidAmount,
+      paymentStatus,
+      paymentMethod,
+      paymentNotes
+    );
+    setQuotes(updated);
   };
 
   const handleAssignInstaller = (quoteId: string, assignment: InstallerAssignment) => {
@@ -219,12 +291,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
-      {/* Top Header with 5 navigation views */}
+      {/* Top Header with streamlined navigation views */}
       <Header
         currentView={currentView}
         onNavigate={(view) => {
-          setCurrentView(view);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          if (view === 'quote_mesh') {
+            handleNavigateToQuoteMesh();
+          } else {
+            setCurrentView(view);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
         }}
         pendingQuotesCount={pendingQuotesCount}
         receivedQuotesCount={receivedQuotesCount}
@@ -232,199 +308,178 @@ export default function App() {
         technicianOrdersCount={technicianOrdersCount}
         currentUser={currentUser}
         onOpenLogin={handleOpenLogin}
+        onOpenGmailConnect={() => setIsGmailModalOpen(true)}
         onLogout={handleLogout}
         onOpenSupabaseModal={() => setShowSupabaseModal(true)}
       />
-
-      {/* Screen selector indicator strip */}
-      <div className="bg-white border-b border-slate-200 py-2.5 px-4 text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-slate-600">
-            <span className="font-semibold text-slate-800">Pantalla activa:</span>
-            {currentView === 'client' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold">
-                Pantalla 1: Oferta, Objetivo & Solicitud de Ventanas (Cliente)
-              </span>
-            )}
-            {currentView === 'admin' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-600 text-white font-bold">
-                Pantalla 2: Recepción de Cotizaciones, Cambio de Valor & Envío (Admin)
-              </span>
-            )}
-            {currentView === 'received_quotes' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 text-white font-bold">
-                Pantalla 3: Cotizaciones Recibidas por el Cliente (Vista de Consulta, No Modificación)
-              </span>
-            )}
-            {currentView === 'approved_quotes' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white font-bold">
-                Pantalla 4: Cotizaciones Aprobadas & Asignación de Instalador
-              </span>
-            )}
-            {currentView === 'technician_orders' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-800 text-white font-bold">
-                Pantalla 5: Recepción de Pedidos por Técnicos (Notas, Aceptar Solicitud & Trabajo Realizado)
-              </span>
-            )}
-            {currentView === 'client_portal' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 text-white font-bold">
-                Pantalla de Presupuesto Individual
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3 text-xs">
-            {currentView !== 'client' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentView('client');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="text-slate-600 hover:text-sky-700 font-bold flex items-center gap-1 hover:underline"
-              >
-                <span>1. Inicio & Cotizar</span>
-              </button>
-            )}
-
-            {currentView !== 'admin' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentView('admin');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 hover:underline"
-              >
-                <span>2. Recepción (Admin)</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {currentView !== 'received_quotes' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentView('received_quotes');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="text-slate-800 hover:text-sky-800 font-bold flex items-center gap-1 hover:underline"
-              >
-                <FileText className="w-3.5 h-3.5 text-sky-600" />
-                <span>3. Cotizaciones Recibidas</span>
-              </button>
-            )}
-
-            {currentView !== 'approved_quotes' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentView('approved_quotes');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 hover:underline"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>4. Aprobadas & Instalador</span>
-              </button>
-            )}
-
-            {currentView !== 'technician_orders' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCurrentView('technician_orders');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 hover:underline"
-              >
-                <Wrench className="w-3.5 h-3.5 text-sky-600" />
-                <span>5. Pedidos Técnicos</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         {currentView === 'client' && (
           <HomeClientView
-            onQuoteCreated={handleQuoteCreated}
-            lastCreatedQuote={lastCreatedQuote}
-            showSuccessModal={showSuccessModal}
-            onCloseSuccessModal={() => setShowSuccessModal(false)}
-            onGoToAdmin={handleGoToAdminFromSuccess}
-            currentUser={currentUser}
-          />
-        )}
-
-        {currentView === 'admin' && (
-          <AdminQuotesView
             quotes={quotes}
-            onSaveAdminQuote={handleSaveAdminQuote}
-            onDeleteQuote={handleDeleteQuote}
-            onAssignInstaller={handleAssignInstaller}
-            onUnassignInstaller={handleUnassignInstaller}
-            onNavigateToClient={() => {
-              setCurrentView('client');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onNavigateToClientQuoteScreen={handleViewClientQuoteScreen}
-            onNavigateToReceivedQuotes={() => {
-              setCurrentView('received_quotes');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onNavigateToApprovedQuotes={() => {
-              setCurrentView('approved_quotes');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onNavigateToTechnicianOrders={() => {
-              setCurrentView('technician_orders');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-          />
-        )}
-
-        {currentView === 'received_quotes' && (
-          <ClientReceivedQuotesView
-            quotes={quotes}
-            onAcceptQuote={handleAcceptQuote}
-            onNavigateToApproved={() => {
-              setCurrentView('approved_quotes');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            currentUser={currentUser}
-            onOpenLogin={() => handleOpenLogin('login')}
-          />
-        )}
-
-        {currentView === 'approved_quotes' && (
-          <ApprovedQuotesView
-            quotes={quotes}
-            onAssignInstaller={handleAssignInstaller}
-            onNavigateToQuotes={() => {
+            onGoToQuoteMesh={handleNavigateToQuoteMesh}
+            onAuthenticateWithGmail={() => setIsGmailModalOpen(true)}
+            onGoToAdmin={() => {
               setCurrentView('admin');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onNavigateToTechnicianOrders={() => {
+            onGoToTechnicianOrders={() => {
               setCurrentView('technician_orders');
               window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onGoToAccessLogs={() => {
+              setCurrentView('admin');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            currentUser={currentUser}
+            onRespondQuote={(quote) => {
+              handleViewClientQuoteScreen(quote);
             }}
           />
         )}
 
+        {currentView === 'quote_mesh' && (
+          !isUserGmailConnected(currentUser) ? (
+            <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4 animate-fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+                <Mail className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900">
+                Autenticación Requerida con Gmail
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+                Para solicitar cotización de mallas de seguridad, esta opción exige autenticarse previamente con tu cuenta de Gmail (@gmail.com). Conecta tu cuenta para ingresar las medidas de tus ventanas.
+              </p>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsGmailModalOpen(true)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-2"
+                >
+                  <span className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-black">
+                    G
+                  </span>
+                  <span>Autenticar con Gmail</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('client')}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Volver al Inicio
+                </button>
+              </div>
+            </div>
+          ) : (
+            <QuoteMeshView
+              onQuoteCreated={handleQuoteCreated}
+              currentUser={currentUser}
+              onBackToHome={() => {
+                setCurrentView('client');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onGoToAdmin={() => {
+                setCurrentView('admin');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onChangeGmailAccount={() => setIsGmailModalOpen(true)}
+            />
+          )
+        )}
+
+        {currentView === 'admin' && (
+          !isUserAdmin(currentUser) ? (
+            <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4 animate-fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-sky-500/10 text-sky-700 flex items-center justify-center mx-auto">
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900">
+                Acceso Exclusivo para Usuario Administrador
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+                El usuario administrador es quien puede recepcionar las cotizaciones y pedidos técnicos. Inicia sesión con tus credenciales de administrador (ej: <strong>ruth.cerna@gmail.com</strong> o <strong>rcv.informacion@gmail.com</strong>).
+              </p>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleOpenLogin('login')}
+                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+                >
+                  Iniciar Sesión como Administrador
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('client')}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Volver al Inicio
+                </button>
+              </div>
+            </div>
+          ) : (
+            <AdminQuotesView
+              quotes={quotes}
+              onSaveAdminQuote={handleSaveAdminQuote}
+              onDeleteQuote={handleDeleteQuote}
+              onAssignInstaller={handleAssignInstaller}
+              onUnassignInstaller={handleUnassignInstaller}
+              onAcceptQuote={handleAcceptQuote}
+              onUpdatePayment={handleUpdatePayment}
+              onNavigateToClient={() => {
+                setCurrentView('client');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onNavigateToClientQuoteScreen={handleViewClientQuoteScreen}
+              onNavigateToTechnicianOrders={() => {
+                setCurrentView('technician_orders');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          )
+        )}
+
         {currentView === 'technician_orders' && (
-          <TechnicianOrdersView
-            quotes={quotes}
-            onUpdateTechnicianExecution={handleUpdateTechnicianExecution}
-            onNavigateToApprovedAdmin={() => {
-              setCurrentView('approved_quotes');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            currentUser={currentUser}
-            onOpenLogin={() => handleOpenLogin('login')}
-          />
+          (!isUserAdmin(currentUser) && currentUser?.role !== 'tecnico') ? (
+            <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4 animate-fade-in">
+              <div className="w-16 h-16 rounded-2xl bg-sky-800/10 text-sky-800 flex items-center justify-center mx-auto">
+                <Wrench className="w-8 h-8" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900">
+                Recepción de Pedidos Técnicos
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+                Esta sección está disponible para el Usuario Administrador e Instaladores Técnicos para coordinar órdenes y ejecución técnica.
+              </p>
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleOpenLogin('login')}
+                  className="px-5 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('client')}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Volver al Inicio
+                </button>
+              </div>
+            </div>
+          ) : (
+            <TechnicianOrdersView
+              quotes={quotes}
+              onUpdateTechnicianExecution={handleUpdateTechnicianExecution}
+              onNavigateToApprovedAdmin={() => {
+                setCurrentView('admin');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              currentUser={currentUser}
+              onOpenLogin={() => handleOpenLogin('login')}
+            />
+          )
         )}
 
         {currentView === 'client_portal' && (
@@ -436,10 +491,7 @@ export default function App() {
               setCurrentView('admin');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onGoToRequestQuote={() => {
-              setCurrentView('client');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onGoToRequestQuote={handleNavigateToQuoteMesh}
             onChangeValue={(q) => setEditingQuoteFromPortal(q)}
             onAcceptQuote={handleAcceptQuote}
             isAdminViewing={true}
@@ -470,6 +522,14 @@ export default function App() {
         onSuccess={handleAuthSuccess}
         initialMode={loginModalMode}
         prefilledEmail={currentUser?.email || ''}
+      />
+
+      {/* Gmail Account Connection Modal to start Quoting */}
+      <GmailConnectModal
+        isOpen={isGmailModalOpen}
+        onClose={() => setIsGmailModalOpen(false)}
+        onConnected={handleGmailConnected}
+        defaultEmail={currentUser?.email || 'ruth.cerna@gmail.com'}
       />
 
       {/* Supabase PostgreSQL Database Integration & Sync Modal */}

@@ -1,4 +1,5 @@
 import { QuoteRequest, AdminQuoteDetails, InstallerAssignment, TechnicianExecution } from '../types';
+import { createQuoteEmailDispatch } from './emailFormatter';
 import { INITIAL_QUOTES } from '../data/initialQuotes';
 import {
   isSupabaseConfigured,
@@ -80,10 +81,14 @@ export const saveQuotesToStorage = (quotes: QuoteRequest[]): void => {
 };
 
 export const addQuoteRequest = (newQuote: QuoteRequest): QuoteRequest[] => {
+  const quoteWithDispatch: QuoteRequest = {
+    ...newQuote,
+    emailDispatch: newQuote.emailDispatch || createQuoteEmailDispatch(newQuote),
+  };
   const current = getStoredQuotes();
-  const updated = [newQuote, ...current];
+  const updated = [quoteWithDispatch, ...current];
   saveQuotesToStorage(updated);
-  syncQuoteToClouds(newQuote);
+  syncQuoteToClouds(quoteWithDispatch);
   return updated;
 };
 
@@ -312,6 +317,74 @@ export const deleteQuoteRequest = (quoteId: string): QuoteRequest[] => {
   const updated = current.filter((q) => q.id !== quoteId);
   saveQuotesToStorage(updated);
   deleteQuoteFromClouds(quoteId);
+  return updated;
+};
+
+/**
+ * Register customer acceptance with timestamp and status 'aceptada'
+ */
+export const registerQuoteAcceptance = (
+  quoteId: string,
+  acceptedAt?: string
+): QuoteRequest[] => {
+  const current = getStoredQuotes();
+  let modifiedQuote: QuoteRequest | null = null;
+  const updated = current.map((q) => {
+    if (q.id === quoteId) {
+      modifiedQuote = {
+        ...q,
+        status: 'aceptada' as const,
+        acceptedAt: acceptedAt || new Date().toISOString(),
+      };
+      return modifiedQuote;
+    }
+    return q;
+  });
+  saveQuotesToStorage(updated);
+  if (modifiedQuote) {
+    syncQuoteToClouds(modifiedQuote);
+  }
+  return updated;
+};
+
+/**
+ * Register payment or advance on a quote for financial tracking
+ */
+export const updateQuotePayment = (
+  quoteId: string,
+  paidAmount: number,
+  paymentStatus?: 'pendiente' | 'abono_parcial' | 'pagado_total',
+  paymentMethod?: string,
+  paymentNotes?: string
+): QuoteRequest[] => {
+  const current = getStoredQuotes();
+  let modifiedQuote: QuoteRequest | null = null;
+  const updated = current.map((q) => {
+    if (q.id === quoteId) {
+      const quoteTotal = q.adminQuote?.total || 0;
+      const status: 'pendiente' | 'abono_parcial' | 'pagado_total' =
+        paymentStatus ||
+        (paidAmount <= 0
+          ? 'pendiente'
+          : paidAmount >= quoteTotal && quoteTotal > 0
+          ? 'pagado_total'
+          : 'abono_parcial');
+
+      modifiedQuote = {
+        ...q,
+        paidAmount,
+        paymentStatus: status,
+        paymentMethod: paymentMethod || q.paymentMethod || 'Transferencia',
+        paymentNotes: paymentNotes !== undefined ? paymentNotes : q.paymentNotes,
+      };
+      return modifiedQuote;
+    }
+    return q;
+  });
+  saveQuotesToStorage(updated);
+  if (modifiedQuote) {
+    syncQuoteToClouds(modifiedQuote);
+  }
   return updated;
 };
 

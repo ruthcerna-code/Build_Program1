@@ -656,35 +656,23 @@ export const AdminQuoteEditorModal: React.FC<AdminQuoteEditorModalProps> = ({
               Cancelar
             </button>
 
-            {/* View email option */}
+            {/* Primary send to client email button */}
             <button
-              id="btn-send-and-view-email"
+              id="btn-send-to-client-email"
               type="button"
               onClick={() => handleSend('email')}
               disabled={isSending}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all disabled:opacity-50"
-            >
-              <Mail className="w-3.5 h-3.5 text-sky-400" />
-              <span>Enviar y Ver Correo</span>
-            </button>
-
-            {/* Primary: View client quotation screen */}
-            <button
-              id="btn-send-and-view-client-screen"
-              type="button"
-              onClick={() => handleSend('client_screen')}
-              disabled={isSending}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-sky-600/20 transition-all hover:scale-[1.01] disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-sky-600/20 transition-all hover:scale-[1.01] disabled:opacity-50 cursor-pointer"
             >
               {isSending ? (
                 <>
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Despachando...</span>
+                  <span>Enviando al Correo...</span>
                 </>
               ) : (
                 <>
-                  <Building className="w-4 h-4 text-white" />
-                  <span>Enviar y Visualizar Pantalla del Usuario</span>
+                  <Send className="w-4 h-4 stroke-[2.5]" />
+                  <span>Enviar Presupuesto al Correo del Usuario</span>
                 </>
               )}
             </button>

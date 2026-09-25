@@ -93,6 +93,107 @@ export function setCurrentUser(user: UserAccount | null): void {
 }
 
 /**
+ * Check if the user is currently connected with a Gmail account
+ */
+export function isUserGmailConnected(user: UserAccount | null): boolean {
+  if (!user || !user.email) return false;
+  return user.email.toLowerCase().endsWith('@gmail.com');
+}
+
+/**
+ * Check if the user is an administrator
+ */
+export function isUserAdmin(user: UserAccount | null): boolean {
+  if (!user || !user.email) return false;
+  return (
+    user.role === 'admin' ||
+    user.email.toLowerCase().includes('admin') ||
+    user.email.toLowerCase() === 'ruth.cerna@gmail.com' ||
+    user.email.toLowerCase() === 'rcv.informacion@gmail.com'
+  );
+}
+
+/**
+ * Connect or register immediately via Gmail account
+ */
+export function loginWithGmailAccount(
+  email: string,
+  fullName?: string
+): {
+  success: boolean;
+  user?: UserAccount;
+  isNewUser?: boolean;
+  error?: string;
+} {
+  let cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) {
+    return {
+      success: false,
+      error: 'Por favor ingresa tu cuenta de Gmail.',
+    };
+  }
+
+  // Auto-append @gmail.com if only username was entered
+  if (!cleanEmail.includes('@')) {
+    cleanEmail = `${cleanEmail}@gmail.com`;
+  }
+
+  if (!cleanEmail.endsWith('@gmail.com')) {
+    return {
+      success: false,
+      error: 'El correo debe ser una cuenta válida de Gmail (@gmail.com).',
+    };
+  }
+
+  const users = getStoredUsers();
+  const existingUserIndex = users.findIndex(
+    (u) => u.email.toLowerCase() === cleanEmail
+  );
+
+  if (existingUserIndex !== -1) {
+    const existing = users[existingUserIndex];
+    setCurrentUser(existing);
+    return {
+      success: true,
+      user: existing,
+      isNewUser: false,
+    };
+  }
+
+  // Create new user immediately with role 'cliente' (or 'admin' if ruth)
+  const role: UserRole =
+    cleanEmail === 'ruth.cerna@gmail.com' ? 'admin' : 'cliente';
+
+  const defaultName =
+    fullName?.trim() ||
+    cleanEmail
+      .split('@')[0]
+      .split('.')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+  const newUser: UserAccount = {
+    id: `user-gmail-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    email: cleanEmail,
+    passwordHash: 'google-auth-connected',
+    fullName: defaultName,
+    role: role,
+    createdAt: new Date().toISOString(),
+    mustChangePassword: false,
+  };
+
+  const updatedUsers = [newUser, ...users];
+  saveStoredUsers(updatedUsers);
+  setCurrentUser(newUser);
+
+  return {
+    success: true,
+    user: newUser,
+    isNewUser: true,
+  };
+}
+
+/**
  * Login or immediately create account if user does not exist
  * "generar un login de usuario el cual sea creado de forma inmediata cuando se tenga nombre de usuario, que será el correo y password"
  */

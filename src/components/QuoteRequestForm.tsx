@@ -219,7 +219,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
             Pide tu Cotización de Mallas de Seguridad
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            Ingresa las medidas de tus ventanas y recibe el presupuesto detallado directamente en tu correo.
+            Ingresa las medidas de tus ventanas. Al presionar <strong>Ejecutar Enviar</strong>, te enviaremos un aviso oficial a tu correo confirmando que estás cotizando (sin precio anticipado) y derivaremos los datos a la central técnica.
           </p>
         </div>
 
@@ -284,7 +284,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                 className="block text-xs font-semibold text-slate-700 mb-1"
               >
                 Correo Electrónico <span className="text-rose-500">*</span>
-                <span className="text-[10px] text-sky-600 font-normal ml-1">(Aquí recibirás el valor)</span>
+                <span className="text-[10px] text-sky-600 font-normal ml-1">(Aquí recibirás el aviso de cotización)</span>
               </label>
               <div className="relative">
                 <input
@@ -688,6 +688,19 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
             />
           </div>
 
+          {/* Informative banner: No price upfront, only quotation notice */}
+          <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-4 flex items-start gap-3 text-xs text-sky-950">
+            <Sparkles className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold text-sky-900">
+                Aviso al Cliente: Solicitud de Cotización sin Precio Anticipado
+              </p>
+              <p className="text-sky-800 leading-relaxed">
+                Al ejecutar la actividad <strong>Enviar</strong>, no se colocará un precio inmediato. Te notificaremos a tu correo que tu cotización ha sido ingresada para que nuestro equipo técnico evalúe los detalles y te entregue la propuesta formal definitiva.
+              </p>
+            </div>
+          </div>
+
           {/* Summary Banner before sending */}
           <div className="bg-slate-50 rounded-2xl p-4 sm:p-5 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -719,12 +732,12 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Enviando solicitud...</span>
+                  <span>Ejecutando envío...</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4 stroke-[2.5]" />
-                  <span>Enviar para Cotización</span>
+                  <span>Ejecutar Actividad Enviar</span>
                 </>
               )}
             </button>

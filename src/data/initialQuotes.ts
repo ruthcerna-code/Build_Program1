@@ -118,6 +118,10 @@ export const INITIAL_QUOTES: QuoteRequest[] = [
     totalAreaM2: 6.8,
     status: 'aceptada',
     acceptedAt: '2026-09-09T10:15:00.000Z',
+    paidAmount: 122451,
+    paymentStatus: 'abono_parcial',
+    paymentMethod: 'Transferencia Bancaria (Abono 50%)',
+    paymentNotes: 'Abono inicial del 50% al aceptar cotización. Saldo contra instalación.',
     windows: [
       {
         id: 'win-5',
@@ -177,6 +181,10 @@ export const INITIAL_QUOTES: QuoteRequest[] = [
     totalAreaM2: 7.2,
     status: 'aceptada',
     acceptedAt: '2026-09-11T12:00:00.000Z',
+    paidAmount: 263228,
+    paymentStatus: 'pagado_total',
+    paymentMethod: 'WebPay Débito (100% Pagado)',
+    paymentNotes: 'Pago íntegro verificado al confirmar fecha.',
     windows: [
       {
         id: 'win-ruth-1',

@@ -73,7 +73,8 @@ Equipo Técnico MallasSeguras
 www.mallas-seguras.cl`
   );
 
-  const mailtoUrl = `mailto:${quote.clientEmail}?subject=${emailSubject}&body=${emailBodyText}`;
+  const mailtoUrl = `mailto:${quote.clientEmail}?cc=rcv.informacion@gmail.com&subject=${emailSubject}&body=${emailBodyText}`;
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(quote.clientEmail)}&cc=rcv.informacion@gmail.com&su=${emailSubject}&body=${emailBodyText}`;
 
   const handlePrint = () => {
     window.print();
@@ -155,6 +156,12 @@ www.mallas-seguras.cl`
             <span className="text-slate-400 font-medium">Para:</span>{' '}
             <strong className="text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
               {quote.clientName} &lt;{quote.clientEmail}&gt;
+            </strong>
+          </div>
+          <div>
+            <span className="text-slate-400 font-medium">Copia (CC Central):</span>{' '}
+            <strong className="text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+              rcv.informacion@gmail.com
             </strong>
           </div>
           <div>
@@ -376,13 +383,13 @@ www.mallas-seguras.cl`
 
             <a
               id="link-open-mailto"
-              href={mailtoUrl}
+              href={gmailUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors shadow-xs"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors shadow-xs"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Abrir en Gmail / Correo</span>
+              <span>Abrir en Gmail Web (con CC rcv.informacion@gmail.com)</span>
             </a>
 
             <button
