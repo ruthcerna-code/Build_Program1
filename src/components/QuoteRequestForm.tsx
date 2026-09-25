@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { WindowItem, PropertyType, MeshType, QuoteRequest, UserAccount } from '../types';
 import { generateQuoteFolio } from '../services/quoteStorage';
+import { formatRut } from '../utils/rutUtils';
 
 interface QuoteRequestFormProps {
   onSubmitQuote: (quote: QuoteRequest) => void;
@@ -44,6 +45,9 @@ const getDefaultFutureDate = (daysAhead: number): string => {
 export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuote, currentUser }) => {
   // Client Info State (prefilled with logged in user or defaults)
   const [clientName, setClientName] = useState(currentUser?.fullName || 'Ruth Cerna');
+  const [clientRut, setClientRut] = useState(
+    currentUser?.rut || (currentUser?.email === 'ruth.cerna@gmail.com' ? '14.582.910-K' : '')
+  );
   const [clientEmail, setClientEmail] = useState(currentUser?.email || 'ruth.cerna@gmail.com');
   const [clientPhone, setClientPhone] = useState('+56 9 9123 4567');
   const [clientAddress, setClientAddress] = useState('Av. Apoquindo 4500, Depto 1102');
@@ -56,6 +60,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
     if (currentUser) {
       if (currentUser.fullName) setClientName(currentUser.fullName);
       if (currentUser.email) setClientEmail(currentUser.email);
+      if (currentUser.rut) setClientRut(currentUser.rut);
     }
   }, [currentUser]);
 
@@ -183,6 +188,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
       folio: generateQuoteFolio(),
       createdAt: new Date().toISOString(),
       clientName: clientName.trim(),
+      clientRut: clientRut.trim() || undefined,
       clientEmail: clientEmail.trim().toLowerCase(),
       clientPhone: clientPhone.trim(),
       clientAddress: clientAddress.trim() || 'Dirección por confirmar',
@@ -257,7 +263,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
             1. Datos de Contacto y Envío de la Cotización
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label
                 htmlFor="input-client-name"
@@ -280,11 +286,30 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
 
             <div>
               <label
+                htmlFor="input-client-rut"
+                className="block text-xs font-semibold text-slate-700 mb-1"
+              >
+                RUT del Cliente
+                <span className="text-[10px] text-sky-600 font-normal ml-1">(Para consultas con asistente)</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="input-client-rut"
+                  type="text"
+                  placeholder="Ej: 14.582.910-K"
+                  value={clientRut}
+                  onChange={(e) => setClientRut(formatRut(e.target.value))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
                 htmlFor="input-client-email"
                 className="block text-xs font-semibold text-slate-700 mb-1"
               >
                 Correo Electrónico <span className="text-rose-500">*</span>
-                <span className="text-[10px] text-sky-600 font-normal ml-1">(Aquí recibirás el aviso de cotización)</span>
               </label>
               <div className="relative">
                 <input

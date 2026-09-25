@@ -11,6 +11,8 @@ import { AdminQuoteEditorModal } from './components/AdminQuoteEditorModal';
 import { LoginModal, AuthMode } from './components/LoginModal';
 import { GmailConnectModal } from './components/GmailConnectModal';
 import { SupabaseModal } from './components/SupabaseModal';
+import { ClientAssistantModal } from './components/ClientAssistantModal';
+import { ClientAssistantFloatingButton } from './components/ClientAssistantFloatingButton';
 import {
   QuoteRequest,
   AdminQuoteDetails,
@@ -58,6 +60,7 @@ export default function App() {
   const [editingQuoteFromPortal, setEditingQuoteFromPortal] = useState<QuoteRequest | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState<boolean>(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
 
   // Authentication State
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => getCurrentUser());
@@ -311,6 +314,7 @@ export default function App() {
         onOpenGmailConnect={() => setIsGmailModalOpen(true)}
         onLogout={handleLogout}
         onOpenSupabaseModal={() => setShowSupabaseModal(true)}
+        onOpenAssistant={() => setIsAssistantOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -332,6 +336,7 @@ export default function App() {
               setCurrentView('admin');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onOpenAssistant={() => setIsAssistantOpen(true)}
             currentUser={currentUser}
             onRespondQuote={(quote) => {
               handleViewClientQuoteScreen(quote);
@@ -539,6 +544,31 @@ export default function App() {
         currentUser={currentUser}
         onQuotesSynced={() => setQuotes(getStoredQuotes())}
       />
+
+      {/* Customer Virtual Assistant Modal (Strictly grounded by RUT) */}
+      <ClientAssistantModal
+        isOpen={isAssistantOpen}
+        onClose={() => setIsAssistantOpen(false)}
+        quotes={quotes}
+        currentUser={currentUser}
+        onSelectQuoteToView={(q) => handleViewClientQuoteScreen(q)}
+      />
+
+      {/* Floating Customer Assistant Trigger Button (Accessible to clients) */}
+      {!isUserAdmin(currentUser) && (
+        <ClientAssistantFloatingButton
+          onClick={() => setIsAssistantOpen(true)}
+          quotesCount={
+            quotes.filter((q) =>
+              currentUser?.rut
+                ? q.clientRut === currentUser.rut
+                : currentUser?.email
+                ? q.clientEmail.toLowerCase() === currentUser.email.toLowerCase()
+                : true
+            ).length
+          }
+        />
+      )}
 
       {/* Floating System Auth Toast */}
       {authToast && (

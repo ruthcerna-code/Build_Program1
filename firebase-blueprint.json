@@ -9,6 +9,7 @@
         "folio": { "type": "string", "description": "Folio legible único de la cotización (ej: COT-2026-1234)" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Fecha y hora de creación ISO 8601" },
         "clientName": { "type": "string", "description": "Nombre completo del cliente" },
+        "clientRut": { "type": "string", "description": "RUT chileno único del cliente (ej: 14.582.910-K)" },
         "clientEmail": { "type": "string", "format": "email", "description": "Correo electrónico del cliente" },
         "clientPhone": { "type": "string", "description": "Teléfono de contacto del cliente" },
         "clientAddress": { "type": "string", "description": "Dirección física de instalación" },
@@ -62,6 +63,7 @@
           "enum": ["admin", "tecnico", "cliente"],
           "description": "Rol de permisos en el sistema"
         },
+        "rut": { "type": "string", "description": "RUT del usuario" },
         "phone": { "type": "string", "description": "Teléfono de contacto" }
       },
       "required": ["id", "email", "fullName", "role"]

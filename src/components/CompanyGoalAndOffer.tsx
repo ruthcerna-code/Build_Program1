@@ -19,7 +19,8 @@ import {
   HelpCircle,
   Zap,
   Flame,
-  Shield
+  Shield,
+  Bot
 } from 'lucide-react';
 
 interface CompanyGoalAndOfferProps {
@@ -27,6 +28,7 @@ interface CompanyGoalAndOfferProps {
   onAuthenticateWithGmail?: () => void;
   onGoToAdmin?: () => void;
   onGoToTechnicianOrders?: () => void;
+  onOpenAssistant?: () => void;
   currentUser?: UserAccount | null;
 }
 
@@ -38,6 +40,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
   onAuthenticateWithGmail,
   onGoToAdmin,
   onGoToTechnicianOrders,
+  onOpenAssistant,
   currentUser,
 }) => {
   const isAdmin =
@@ -151,6 +154,18 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   </span>
                   <span>Conectar con Gmail para Cotizar</span>
                   <ArrowRight className="w-4 h-4 text-slate-500" />
+                </button>
+              )}
+
+              {onOpenAssistant && (
+                <button
+                  type="button"
+                  onClick={onOpenAssistant}
+                  className="px-5 py-3 rounded-2xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer border border-indigo-400/40"
+                  title="Consultar cotizaciones con el Asistente por RUT"
+                >
+                  <Bot className="w-4 h-4 text-sky-300" />
+                  <span>Asistente por RUT</span>
                 </button>
               )}
 
@@ -531,6 +546,45 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* CLIENT ASSISTANT SHOWCASE BANNER */}
+      <div
+        id="banner-client-assistant-home"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-950 via-slate-900 to-sky-950 text-white p-6 sm:p-7 border border-indigo-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/30 text-sky-300 border border-indigo-400/40 flex items-center justify-center shrink-0 shadow-inner">
+            <Bot className="w-6 h-6 text-sky-300" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider bg-amber-400/15 px-2.5 py-0.5 rounded-full border border-amber-400/30">
+                Nuevo Servicio Clientes
+              </span>
+              <h3 className="text-base sm:text-lg font-black text-white">
+                Asistente Virtual de Cotizaciones por RUT
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+              ¿Ya solicitaste una cotización? Consulta en tiempo real el estado, presupuesto, medidas y fecha de instalación ingresando tu RUT chileno. Asistente inteligente enfocado exclusivamente en tus cotizaciones.
+            </p>
+          </div>
+        </div>
+
+        {onOpenAssistant && (
+          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+            <button
+              type="button"
+              onClick={onOpenAssistant}
+              className="w-full md:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-lg hover:shadow-xl cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Bot className="w-4 h-4" />
+              <span>Consultar Cotizaciones con mi RUT</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 4. THREE-STEP PROCESS (QUICK & SCANNABLE) */}

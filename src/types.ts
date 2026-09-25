@@ -63,6 +63,7 @@ export interface QuoteRequest {
   folio: string;
   createdAt: string;
   clientName: string;
+  clientRut?: string; // Chilean RUT of client (ej: 14.582.910-K)
   clientEmail: string;
   clientPhone: string;
   clientAddress: string;
@@ -109,6 +110,7 @@ export interface UserAccount {
   passwordHash: string;
   fullName: string;
   role: UserRole;
+  rut?: string;
   createdAt: string;
   provisionalPassword?: string;
   provisionalPasswordCreatedAt?: string;

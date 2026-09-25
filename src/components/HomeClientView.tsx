@@ -12,6 +12,7 @@ interface HomeClientViewProps {
   onGoToAdmin?: () => void;
   onGoToTechnicianOrders?: () => void;
   onGoToAccessLogs?: () => void;
+  onOpenAssistant?: () => void;
   currentUser?: UserAccount | null;
   onRespondQuote?: (quote: QuoteRequest) => void;
 }
@@ -23,6 +24,7 @@ export const HomeClientView: React.FC<HomeClientViewProps> = ({
   onGoToAdmin,
   onGoToTechnicianOrders,
   onGoToAccessLogs,
+  onOpenAssistant,
   currentUser,
   onRespondQuote,
 }) => {
@@ -73,6 +75,7 @@ export const HomeClientView: React.FC<HomeClientViewProps> = ({
         onAuthenticateWithGmail={onAuthenticateWithGmail}
         onGoToAdmin={onGoToAdmin}
         onGoToTechnicianOrders={onGoToTechnicianOrders}
+        onOpenAssistant={onOpenAssistant}
         currentUser={currentUser}
       />
     </div>

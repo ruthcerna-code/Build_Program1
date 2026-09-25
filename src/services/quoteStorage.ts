@@ -1,6 +1,7 @@
 import { QuoteRequest, AdminQuoteDetails, InstallerAssignment, TechnicianExecution } from '../types';
 import { createQuoteEmailDispatch } from './emailFormatter';
 import { INITIAL_QUOTES } from '../data/initialQuotes';
+import { matchesRut, cleanRut } from '../utils/rutUtils';
 import {
   isSupabaseConfigured,
   upsertQuoteToSupabase,
@@ -64,11 +65,34 @@ export const getStoredQuotes = (): QuoteRequest[] => {
       return INITIAL_QUOTES;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_QUOTES;
+    if (Array.isArray(parsed)) {
+      // Ensure seed quotes have their clientRut populated if previously saved without it
+      const updated = parsed.map((q) => {
+        if (!q.clientRut) {
+          const match = INITIAL_QUOTES.find((s) => s.id === q.id || s.clientEmail === q.clientEmail);
+          if (match?.clientRut) {
+            return { ...q, clientRut: match.clientRut };
+          }
+        }
+        return q;
+      });
+      return updated;
+    }
+    return INITIAL_QUOTES;
   } catch (error) {
     console.error('Error reading quotes from storage:', error);
     return INITIAL_QUOTES;
   }
+};
+
+/**
+ * Filter quotes strictly by the user's RUT.
+ */
+export const getQuotesByRut = (rut: string): QuoteRequest[] => {
+  const cleaned = cleanRut(rut);
+  if (!cleaned) return [];
+  const allQuotes = getStoredQuotes();
+  return allQuotes.filter((q) => matchesRut(q.clientRut, cleaned));
 };
 
 export const saveQuotesToStorage = (quotes: QuoteRequest[]): void => {

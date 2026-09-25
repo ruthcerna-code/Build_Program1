@@ -14,7 +14,8 @@ import {
   LogOut,
   KeyRound,
   ChevronDown,
-  Database
+  Database,
+  Bot
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
@@ -41,6 +42,7 @@ interface HeaderProps {
   onOpenGmailConnect?: () => void;
   onLogout?: () => void;
   onOpenSupabaseModal?: () => void;
+  onOpenAssistant?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -55,6 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenGmailConnect,
   onLogout,
   onOpenSupabaseModal,
+  onOpenAssistant,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const firebaseConnected = isFirebaseConfigured();
@@ -294,6 +297,20 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>Autenticar con Gmail</span>
                     </button>
                   ) : null}
+
+                  {/* Asistente Virtual para Clientes por RUT */}
+                  {onOpenAssistant && (
+                    <button
+                      id="btn-nav-assistant-client"
+                      type="button"
+                      onClick={onOpenAssistant}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                      title="Asistente para Clientes: consulta información y estado de tus cotizaciones por RUT"
+                    >
+                      <Bot className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Asistente por RUT</span>
+                    </button>
+                  )}
                 </>
               )}
             </nav>
