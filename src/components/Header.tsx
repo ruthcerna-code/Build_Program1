@@ -133,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ) : (
                   <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200/70">
                     <Sparkles className="w-3 h-3 text-sky-600" />
-                    Redes Certificadas
+                    Mallas de seguridad
                   </span>
                 )}
               </div>
@@ -144,7 +144,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {isAdmin
                   ? 'Centro de Recepción y Control de Cotizaciones'
-                  : 'Protección para ventanas, balcones y terrazas'}
+                  : 'Evaluación y cotización sin costo'}
               </p>
             </div>
           </div>
@@ -338,14 +338,16 @@ export const Header: React.FC<HeaderProps> = ({
                     : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
                 }`}
                 title={
-                  firebaseConnected
+                  supabaseConnected
+                    ? 'Supabase conectado (base principal)'
+                    : firebaseConnected
                     ? 'Google Firebase Firestore conectado y activo'
                     : 'Configuración y sincronización en la nube'
                 }
               >
                 <Database className={`w-3.5 h-3.5 ${cloudConnected ? 'text-amber-600' : 'text-slate-400'}`} />
                 <span className="hidden xl:inline">
-                  {firebaseConnected ? 'Firebase BD' : supabaseConnected ? 'Supabase' : 'BD Nube'}
+                  {supabaseConnected ? 'Supabase' : firebaseConnected ? 'Firebase BD' : 'BD Nube'}
                 </span>
                 <span
                   className={`w-2 h-2 rounded-full ${

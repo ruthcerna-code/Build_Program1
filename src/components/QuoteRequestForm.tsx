@@ -553,7 +553,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                         }
                         className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-200 text-sm text-slate-800 outline-none bg-white"
                       >
-                        <option value="monofilamento">Monofilamento 0.7mm (Invisible)</option>
+                        <option value="monofilamento">Monofilamento 0.7mm</option>
                         <option value="multifilamento">Multifilamento 0.8mm (Trenzado)</option>
                       </select>
                     </div>

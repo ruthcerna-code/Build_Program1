@@ -89,35 +89,35 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
           <div className="lg:col-span-7 space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-bold tracking-wide">
               <ShieldAlert className="w-3.5 h-3.5 text-sky-400" />
-              <span>Instalación Certificada &bull; 24 a 48 Horas</span>
+              <span>Evaluación y cotización sin costo</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
               Mallas de Seguridad:{' '}
-              <span className="text-sky-400">Protección invisible para tu familia</span>
+              <span className="text-sky-400">Protección para tu familia</span>
             </h1>
 
             <p className="text-slate-300 text-sm sm:text-base max-w-xl leading-relaxed">
-              Evita caídas en altura de niños y mascotas. Resisten <strong className="text-white font-bold">180 kg/m²</strong> con filtro solar UV y perfiles de aluminio sin alterar la fachada ni tu vista.
+              Mallas para ventanas, balcones y terrazas. Materiales según ficha técnica del proveedor.
             </p>
 
             {/* 4 Graphic Key Metrics (Bold & Scannable) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
               <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-sky-300">180 kg/m²</div>
-                <div className="text-[11px] text-slate-300 font-medium">Carga probada</div>
+                <div className="text-2xl font-black text-sky-300">Gratis</div>
+                <div className="text-[11px] text-slate-300 font-medium">Evaluación y cotización</div>
               </div>
               <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-amber-300">100% UV</div>
-                <div className="text-[11px] text-slate-300 font-medium">Filtro solar</div>
+                <div className="text-2xl font-black text-amber-300">Mallas</div>
+                <div className="text-[11px] text-slate-300 font-medium">Ventanas y terrazas</div>
               </div>
               <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-emerald-300">3 Años</div>
-                <div className="text-[11px] text-slate-300 font-medium">Garantía oficial</div>
+                <div className="text-2xl font-black text-emerald-300">Ficha</div>
+                <div className="text-[11px] text-slate-300 font-medium">Del proveedor</div>
               </div>
               <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-blue-300">98% Luz</div>
-                <div className="text-[11px] text-slate-300 font-medium">Paso natural</div>
+                <div className="text-2xl font-black text-blue-300">Plazo</div>
+                <div className="text-[11px] text-slate-300 font-medium">Según evaluación</div>
               </div>
             </div>
 
@@ -181,10 +181,10 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-2.5">
               <span className="flex items-center gap-2 text-xs font-bold text-white">
                 <Award className="w-4 h-4 text-amber-400" />
-                Garantías y Certificación 2026
+                Qué incluye nuestro servicio
               </span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">
-                100% Homologado
+                Cotización sin costo
               </span>
             </div>
 
@@ -210,9 +210,9 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-700/80 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-slate-300">
                 <Clock className="w-4 h-4 text-sky-400" />
-                <span>Instalación limpia en 3 a 4 horas</span>
+                <span>Plazo según evaluación</span>
               </div>
-              <span className="text-emerald-400 font-bold">Sin polvo residual</span>
+              <span className="text-emerald-400 font-bold">Ficha del proveedor</span>
             </div>
           </div>
         </div>
@@ -350,7 +350,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             {hasMesh ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/90 text-white font-black text-xs shadow-md">
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>100% Protegido (180 kg/m²)</span>
+                <span>Con malla de protección</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-600/95 text-white font-black text-xs shadow-md animate-pulse">
@@ -378,7 +378,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Con Malla Invisible</span>
+                  <span>Con Malla</span>
                 </button>
                 <button
                   type="button"
@@ -444,8 +444,8 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-900">Nylon 0.80 mm Monofilamento</h4>
-              <p className="text-[11px] text-slate-500">Nudos termosellados de alta resistencia.</p>
+              <h4 className="text-xs font-bold text-slate-900">Materiales</h4>
+              <p className="text-[11px] text-slate-500">Según ficha técnica del proveedor.</p>
             </div>
           </div>
 
@@ -481,19 +481,19 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                 <Check className="w-5 h-5 stroke-[3]" />
               </div>
               <div>
-                <h3 className="text-base font-black text-white">Malla Invisible de Seguridad</h3>
+                <h3 className="text-base font-black text-white">Malla de Seguridad</h3>
                 <span className="text-[11px] text-sky-300 font-semibold">Tecnología recomendada</span>
               </div>
             </div>
             <span className="text-xs font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-              Aprobada 100%
+              Opción recomendada
             </span>
           </div>
 
           <div className="space-y-2 text-xs text-slate-200">
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
-              <span><strong>98% Luz y Vista despejada:</strong> Sin sensación de encierro.</span>
+              <span><strong>Permite el paso de luz y la vista:</strong> Sin sensación de encierro.</span>
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
@@ -505,7 +505,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
-              <span><strong>Instalación Express:</strong> Lista en 3 horas sin ruidos molestos.</span>
+              <span><strong>Plazo de instalación:</strong> Según evaluación.</span>
             </div>
           </div>
         </div>

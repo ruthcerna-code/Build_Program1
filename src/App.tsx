@@ -35,8 +35,8 @@ import {
   syncWithCloudDatabases,
 } from './services/quoteStorage';
 import { isSupabaseConfigured } from './services/supabaseClient';
-import { getCurrentUser, logoutUser, isUserGmailConnected, isUserAdmin } from './services/authStorage';
-import { recordUserAccessLog } from './services/accessLogService';
+import { getCurrentUser, logoutUser, isUserGmailConnected, isUserAdmin, syncUsersWithSupabase } from './services/authStorage';
+import { recordUserAccessLog, syncAccessLogsWithSupabase } from './services/accessLogService';
 import {
   ShieldCheck,
   Phone,
@@ -69,7 +69,7 @@ export default function App() {
   const [loginModalMode, setLoginModalMode] = useState<AuthMode>('login');
   const [authToast, setAuthToast] = useState<string | null>(null);
 
-  // Automatic background synchronization with Cloud Database (Firebase / Supabase)
+  // Automatic background synchronization with Supabase only
   useEffect(() => {
     syncWithCloudDatabases(currentUser?.role === 'cliente' ? currentUser.email : undefined)
       .then((res) => {
@@ -78,6 +78,9 @@ export default function App() {
         }
       })
       .catch((err) => console.warn('Cloud database initial sync notice:', err));
+
+    syncUsersWithSupabase().catch((err) => console.warn('Supabase users sync notice:', err));
+    syncAccessLogsWithSupabase().catch((err) => console.warn('Supabase access logs sync notice:', err));
   }, [currentUser]);
 
   // Sync auth state with localStorage and events
@@ -605,13 +608,13 @@ export default function App() {
                 </span>
               </div>
               <p className="text-slate-400 max-w-md leading-relaxed">
-                Empresa especializada en la fabricación e instalación de mallas de seguridad de alta resistencia 
-                para ventanas, balcones y terrazas. Protegemos lo más valioso de tu hogar con garantía por escrito.
+                Empresa especializada en la fabricación e instalación de mallas de seguridad
+                para ventanas, balcones y terrazas. Protegemos lo más valioso de tu hogar.
               </p>
               <div className="flex items-center gap-4 text-slate-400 text-xs pt-1">
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Redes 180 kg/m²
+                  Cotización sin costo
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -619,7 +622,7 @@ export default function App() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Garantía 2-3 Años
+                  Plazo según evaluación
                 </span>
               </div>
             </div>

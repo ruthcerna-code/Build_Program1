@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { QuoteRequest } from '../types';
+import { QuoteRequest, UserAccount, UserAccessLog } from '../types';
 
 const STORAGE_OVERRIDE_URL = 'mallas_supabase_url';
 const STORAGE_OVERRIDE_KEY = 'mallas_supabase_anon_key';
@@ -11,33 +11,41 @@ export interface SupabaseConfig {
   source: 'env' | 'custom' | 'none';
 }
 
+const isUsableSupabaseEnv = (url?: string, key?: string): boolean => {
+  if (!url || !key) return false;
+  const trimmedUrl = url.trim();
+  const trimmedKey = key.trim();
+  if (!trimmedUrl || !trimmedKey) return false;
+  if (trimmedUrl.includes('your-project') || trimmedKey.includes('your-anon-key')) return false;
+  if (trimmedUrl.includes('127.0.0.1') || trimmedUrl.includes('localhost')) return false;
+  return true;
+};
+
 /**
- * Retrieves the current Supabase configuration from Vite environment variables or local override.
+ * Reads cloud credentials from Vite env (.env.local) first, then localStorage override.
  */
 export const getSupabaseConfig = (): SupabaseConfig => {
-  // Check local override first
-  const customUrl = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_OVERRIDE_URL) : null;
-  const customKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_OVERRIDE_KEY) : null;
+  const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-  if (customUrl && customKey) {
+  if (isUsableSupabaseEnv(envUrl, envKey)) {
     return {
-      url: customUrl.trim(),
-      anonKey: customKey.trim(),
+      url: envUrl!.trim(),
+      anonKey: envKey!.trim(),
       isConfigured: true,
-      source: 'custom',
+      source: 'env',
     };
   }
 
-  // Check Vite environment variables
-  const envUrl = import.meta.env.VITE_SUPABASE_URL;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const customUrl = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_OVERRIDE_URL) : null;
+  const customKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_OVERRIDE_KEY) : null;
 
-  if (envUrl && envKey && !envUrl.includes('your-project') && !envKey.includes('your-anon-key')) {
+  if (isUsableSupabaseEnv(customUrl || undefined, customKey || undefined)) {
     return {
-      url: envUrl.trim(),
-      anonKey: envKey.trim(),
+      url: customUrl!.trim(),
+      anonKey: customKey!.trim(),
       isConfigured: true,
-      source: 'env',
+      source: 'custom',
     };
   }
 
@@ -100,6 +108,7 @@ export const mapQuoteToDbRow = (quote: QuoteRequest) => {
     folio: quote.folio,
     created_at: quote.createdAt,
     client_name: quote.clientName,
+    client_rut: quote.clientRut || '',
     client_email: quote.clientEmail.toLowerCase().trim(),
     client_phone: quote.clientPhone || '',
     client_address: quote.clientAddress || '',
@@ -113,10 +122,15 @@ export const mapQuoteToDbRow = (quote: QuoteRequest) => {
     total_area_m2: quote.totalAreaM2,
     status: quote.status,
     accepted_at: quote.acceptedAt || null,
+    paid_amount: quote.paidAmount ?? null,
+    payment_status: quote.paymentStatus || null,
+    payment_method: quote.paymentMethod || null,
+    payment_notes: quote.paymentNotes || null,
     windows: quote.windows || [],
     admin_quote: quote.adminQuote || null,
     installer_assignment: quote.installerAssignment || null,
     technician_execution: quote.technicianExecution || null,
+    email_dispatch: quote.emailDispatch || null,
   };
 };
 
@@ -129,6 +143,7 @@ export const mapDbRowToQuote = (row: any): QuoteRequest => {
     folio: row.folio,
     createdAt: row.created_at,
     clientName: row.client_name,
+    clientRut: row.client_rut || undefined,
     clientEmail: row.client_email,
     clientPhone: row.client_phone || '',
     clientAddress: row.client_address || '',
@@ -142,10 +157,15 @@ export const mapDbRowToQuote = (row: any): QuoteRequest => {
     totalAreaM2: Number(row.total_area_m2) || 0,
     status: row.status || 'pendiente',
     acceptedAt: row.accepted_at || undefined,
+    paidAmount: row.paid_amount != null ? Number(row.paid_amount) : undefined,
+    paymentStatus: row.payment_status || undefined,
+    paymentMethod: row.payment_method || undefined,
+    paymentNotes: row.payment_notes || undefined,
     windows: Array.isArray(row.windows) ? row.windows : [],
     adminQuote: row.admin_quote || undefined,
     installerAssignment: row.installer_assignment || undefined,
     technicianExecution: row.technician_execution || undefined,
+    emailDispatch: row.email_dispatch || undefined,
   };
 };
 
@@ -172,6 +192,19 @@ export const testSupabaseConnection = async (): Promise<{
       .limit(5);
 
     if (error) {
+      const denied =
+        error.code === '42501' ||
+        error.message?.toLowerCase().includes('permission') ||
+        error.message?.toLowerCase().includes('row-level security') ||
+        error.message?.toLowerCase().includes('rls');
+      if (denied) {
+        return {
+          success: true,
+          message:
+            'Conectado a Supabase. RLS activo: el visitante no puede leer cotizaciones (solo crear).',
+          count: 0,
+        };
+      }
       return {
         success: false,
         message: `Error al consultar Supabase: ${error.message} (Código: ${error.code})`,
@@ -279,6 +312,160 @@ export const syncAllLocalQuotesToSupabase = async (
       return { success: false, synced: 0, error: error.message };
     }
 
+    return { success: true, synced: rows.length };
+  } catch (err: any) {
+    return { success: false, synced: 0, error: err?.message || 'Error de red' };
+  }
+};
+
+export const mapUserToDbRow = (user: UserAccount) => ({
+  id: user.id,
+  email: user.email.toLowerCase().trim(),
+  password_hash: user.passwordHash,
+  full_name: user.fullName,
+  role: user.role,
+  rut: user.rut || null,
+  created_at: user.createdAt,
+  provisional_password: user.provisionalPassword || null,
+  provisional_password_created_at: user.provisionalPasswordCreatedAt || null,
+  must_change_password: !!user.mustChangePassword,
+});
+
+export const mapDbRowToUser = (row: any): UserAccount => ({
+  id: row.id,
+  email: row.email,
+  passwordHash: row.password_hash,
+  fullName: row.full_name,
+  role: row.role || 'cliente',
+  rut: row.rut || undefined,
+  createdAt: row.created_at,
+  provisionalPassword: row.provisional_password || undefined,
+  provisionalPasswordCreatedAt: row.provisional_password_created_at || undefined,
+  mustChangePassword: !!row.must_change_password,
+});
+
+export const fetchUsersFromSupabase = async (): Promise<UserAccount[] | null> => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client.from('app_users').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.warn('Error fetching users from Supabase:', error.message);
+      return null;
+    }
+    return (data || []).map(mapDbRowToUser);
+  } catch (err) {
+    console.warn('Network error fetching users from Supabase:', err);
+    return null;
+  }
+};
+
+export const upsertUsersToSupabase = async (
+  users: UserAccount[]
+): Promise<{ success: boolean; synced: number; error?: string }> => {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, synced: 0, error: 'Supabase no configurado' };
+  }
+
+  try {
+    const rows = users.map(mapUserToDbRow);
+    const { error } = await client.from('app_users').upsert(rows, { onConflict: 'id' });
+    if (error) {
+      return { success: false, synced: 0, error: error.message };
+    }
+    return { success: true, synced: rows.length };
+  } catch (err: any) {
+    return { success: false, synced: 0, error: err?.message || 'Error de red' };
+  }
+};
+
+export const mapAccessLogToDbRow = (log: UserAccessLog) => ({
+  id: log.id,
+  user_id: log.userId,
+  user_email: log.userEmail.toLowerCase().trim(),
+  user_name: log.userName,
+  role: log.role,
+  connected_at: log.connectedAt,
+  connectivity_timestamp: log.connectivityTimestamp,
+  action: log.action,
+  action_description: log.actionDescription,
+  quotes_count: log.quotesCount,
+  quote_folios: log.quoteFolios || [],
+  device_info: log.deviceInfo || null,
+  ip_address: log.ipAddress || null,
+});
+
+export const mapDbRowToAccessLog = (row: any): UserAccessLog => ({
+  id: row.id,
+  userId: row.user_id,
+  userEmail: row.user_email,
+  userName: row.user_name,
+  role: row.role || 'cliente',
+  connectedAt: row.connected_at,
+  connectivityTimestamp: Number(row.connectivity_timestamp) || 0,
+  action: row.action,
+  actionDescription: row.action_description || '',
+  quotesCount: Number(row.quotes_count) || 0,
+  quoteFolios: Array.isArray(row.quote_folios) ? row.quote_folios : [],
+  deviceInfo: row.device_info || undefined,
+  ipAddress: row.ip_address || undefined,
+});
+
+export const fetchAccessLogsFromSupabase = async (): Promise<UserAccessLog[] | null> => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('access_logs')
+      .select('*')
+      .order('connected_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.warn('Error fetching access logs from Supabase:', error.message);
+      return null;
+    }
+    return (data || []).map(mapDbRowToAccessLog);
+  } catch (err) {
+    console.warn('Network error fetching access logs from Supabase:', err);
+    return null;
+  }
+};
+
+export const upsertAccessLogToSupabase = async (log: UserAccessLog): Promise<boolean> => {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  try {
+    const { error } = await client.from('access_logs').upsert(mapAccessLogToDbRow(log), { onConflict: 'id' });
+    if (error) {
+      console.error('Error upserting access log to Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Network error saving access log to Supabase:', err);
+    return false;
+  }
+};
+
+export const upsertAccessLogsToSupabase = async (
+  logs: UserAccessLog[]
+): Promise<{ success: boolean; synced: number; error?: string }> => {
+  const client = getSupabaseClient();
+  if (!client) {
+    return { success: false, synced: 0, error: 'Supabase no configurado' };
+  }
+
+  try {
+    const rows = logs.map(mapAccessLogToDbRow);
+    const { error } = await client.from('access_logs').upsert(rows, { onConflict: 'id' });
+    if (error) {
+      return { success: false, synced: 0, error: error.message };
+    }
     return { success: true, synced: rows.length };
   } catch (err: any) {
     return { success: false, synced: 0, error: err?.message || 'Error de red' };

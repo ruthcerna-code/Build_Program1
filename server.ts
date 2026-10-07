@@ -57,7 +57,7 @@ app.post('/api/assistant/chat', async (req, res) => {
     }
 
     // System prompt enforcing strict adherence to user's quotes by RUT
-    const systemInstruction = `Eres el Asistente Oficial y Exclusivo de Cotizaciones para Clientes de MallasSeguras (empresa líder en Chile en mallas invisibles de seguridad y protección para ventanas, balcones y terrazas).
+    const systemInstruction = `Eres el Asistente Oficial y Exclusivo de Cotizaciones para Clientes de MallasSeguras (empresa líder en Chile en mallas de seguridad y protección para ventanas, balcones y terrazas).
 
 REGLA ESTRICTA E INQUEBRANTABLE DE SEGURIDAD Y ALCANCE:
 1. Tu ÚNICA competencia es responder dudas sobre las cotizaciones solicitadas por el RUT del usuario: "${cleanRut}".

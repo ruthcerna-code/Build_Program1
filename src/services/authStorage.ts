@@ -486,3 +486,11 @@ export function setNewPasswordWithProvisional(
 export function logoutUser(): void {
   setCurrentUser(null);
 }
+
+/**
+ * Users stay in the browser until Supabase Auth is enabled.
+ * Does not push demo accounts or passwords to the cloud.
+ */
+export async function syncUsersWithSupabase(): Promise<UserAccount[]> {
+  return getStoredUsers();
+}
