@@ -6,15 +6,11 @@ import {
   Sparkles,
   Calculator,
   Building,
-  Mail,
   User,
   Phone,
-  MapPin,
-  HelpCircle,
-  CheckCircle,
   AlertCircle,
   Calendar,
-  Clock
+  Camera
 } from 'lucide-react';
 import { WindowItem, PropertyType, MeshType, QuoteRequest, UserAccount } from '../types';
 import { generateQuoteFolio } from '../services/quoteStorage';
@@ -35,25 +31,18 @@ interface WindowDraft {
   notes: string;
 }
 
-// Generate default upcoming dates
-const getDefaultFutureDate = (daysAhead: number): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toISOString().split('T')[0];
-};
-
 export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuote, currentUser }) => {
   // Client Info State (prefilled with logged in user or defaults)
-  const [clientName, setClientName] = useState(currentUser?.fullName || 'Ruth Cerna');
-  const [clientRut, setClientRut] = useState(
-    currentUser?.rut || (currentUser?.email === 'ruth.cerna@gmail.com' ? '14.582.910-K' : '')
-  );
-  const [clientEmail, setClientEmail] = useState(currentUser?.email || 'ruth.cerna@gmail.com');
-  const [clientPhone, setClientPhone] = useState('+56 9 9123 4567');
-  const [clientAddress, setClientAddress] = useState('Av. Apoquindo 4500, Depto 1102');
-  const [clientCity, setClientCity] = useState('Las Condes, Santiago');
+  const [clientName, setClientName] = useState(currentUser?.fullName || '');
+  const [clientRut, setClientRut] = useState(currentUser?.rut || '');
+  const [clientEmail, setClientEmail] = useState(currentUser?.email || '');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+  const [clientCity, setClientCity] = useState('');
   const [propertyType, setPropertyType] = useState<PropertyType>('departamento');
-  const [clientComments, setClientComments] = useState('Malla de seguridad para niños y mascotas.');
+  const [clientComments, setClientComments] = useState('');
+  const [clientPhotoName, setClientPhotoName] = useState('');
+  const [clientPhotoPreview, setClientPhotoPreview] = useState('');
 
   // Update fields when currentUser changes
   useEffect(() => {
@@ -65,18 +54,18 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
   }, [currentUser]);
 
   // Two tentative installation dates and times
-  const [tentativeDate1, setTentativeDate1] = useState(getDefaultFutureDate(3));
-  const [tentativeTime1, setTentativeTime1] = useState('10:00');
-  const [tentativeDate2, setTentativeDate2] = useState(getDefaultFutureDate(5));
-  const [tentativeTime2, setTentativeTime2] = useState('15:30');
+  const [tentativeDate1, setTentativeDate1] = useState('');
+  const [tentativeTime1, setTentativeTime1] = useState('');
+  const [tentativeDate2, setTentativeDate2] = useState('');
+  const [tentativeTime2, setTentativeTime2] = useState('');
 
   // Windows State (starts with 1 window)
   const [windows, setWindows] = useState<WindowDraft[]>([
     {
       id: 'win-' + Date.now(),
-      name: 'Ventana 1 (Dormitorio / Living)',
-      height: '1.40',
-      width: '2.00',
+      name: 'Ventana o balcón 1',
+      height: '',
+      width: '',
       unit: 'm',
       meshType: 'monofilamento',
       notes: ''
@@ -104,9 +93,9 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
       ...prev,
       {
         id: 'win-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5),
-        name: `Ventana ${nextNum} (Ej: Habitación ${nextNum})`,
-        height: '1.40',
-        width: '1.80',
+        name: `Ventana o balcón ${nextNum}`,
+        height: '',
+        width: '',
         unit: 'm',
         meshType: 'monofilamento',
         notes: ''
@@ -125,44 +114,51 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
     );
   };
 
+  const handlePhotoChange = (file: File | undefined) => {
+    if (!file) {
+      setClientPhotoName('');
+      setClientPhotoPreview('');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setFormError('La foto debe ser una imagen (jpg, png o similar).');
+      return;
+    }
+    setFormError(null);
+    setClientPhotoName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setClientPhotoPreview(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    // Validations
     if (!clientName.trim()) {
-      setFormError('Por favor ingresa tu nombre completo.');
-      return;
-    }
-    if (!clientEmail.trim() || !clientEmail.includes('@') || !clientEmail.includes('.')) {
-      setFormError('Por favor ingresa un correo electrónico válido para enviarte la cotización.');
+      setFormError('Ingresa tu nombre.');
       return;
     }
     if (!clientPhone.trim()) {
-      setFormError('Por favor ingresa un número de teléfono o WhatsApp de contacto.');
+      setFormError('Ingresa un teléfono o WhatsApp de contacto.');
+      return;
+    }
+    if (!clientCity.trim()) {
+      setFormError('Ingresa tu comuna.');
+      return;
+    }
+    if (clientEmail.trim() && (!clientEmail.includes('@') || !clientEmail.includes('.'))) {
+      setFormError('Si ingresas correo, debe ser un email válido.');
       return;
     }
 
-    // Check tentative dates
-    if (!tentativeDate1 || !tentativeTime1) {
-      setFormError('Por favor selecciona la primera fecha y hora tentativa para la instalación.');
-      return;
-    }
-    if (!tentativeDate2 || !tentativeTime2) {
-      setFormError('Por favor selecciona la segunda fecha y hora tentativa para la instalación.');
-      return;
-    }
-
-    // Check windows dimensions
     const processedWindows: WindowItem[] = [];
     for (let i = 0; i < windows.length; i++) {
       const w = windows[i];
       const h = parseFloat(w.height.replace(',', '.'));
       const width = parseFloat(w.width.replace(',', '.'));
-
       if (isNaN(h) || h <= 0 || isNaN(width) || width <= 0) {
-        setFormError(`Por favor verifica el alto y ancho de la ${w.name || `Ventana #${i + 1}`}.`);
-        return;
+        continue;
       }
 
       const hM = w.unit === 'cm' ? h / 100 : h;
@@ -181,6 +177,19 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
       });
     }
 
+    if (processedWindows.length === 0 && !clientPhotoName) {
+      setFormError('Agrega medidas aproximadas o una foto del lugar a proteger.');
+      return;
+    }
+
+    const phoneDigits = clientPhone.replace(/\D/g, '') || Date.now().toString();
+    const resolvedEmail = clientEmail.trim()
+      ? clientEmail.trim().toLowerCase()
+      : `whatsapp.${phoneDigits}@pendiente.mallas.cl`;
+
+    const photoNote = clientPhotoName ? `Foto adjunta: ${clientPhotoName}` : '';
+    const comments = [clientComments.trim(), photoNote].filter(Boolean).join('\n');
+
     setIsSubmitting(true);
 
     const newQuote: QuoteRequest = {
@@ -189,18 +198,19 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
       createdAt: new Date().toISOString(),
       clientName: clientName.trim(),
       clientRut: clientRut.trim() || undefined,
-      clientEmail: clientEmail.trim().toLowerCase(),
+      clientEmail: resolvedEmail,
       clientPhone: clientPhone.trim(),
       clientAddress: clientAddress.trim() || 'Dirección por confirmar',
-      clientCity: clientCity.trim() || 'Santiago',
+      clientCity: clientCity.trim(),
       propertyType,
       windows: processedWindows,
       totalAreaM2: Number(totalAreaM2.toFixed(2)),
-      clientComments: clientComments.trim(),
-      tentativeDate1,
-      tentativeTime1,
-      tentativeDate2,
-      tentativeTime2,
+      clientComments: comments,
+      clientPhotoName: clientPhotoName || undefined,
+      tentativeDate1: tentativeDate1 || undefined,
+      tentativeTime1: tentativeTime1 || undefined,
+      tentativeDate2: tentativeDate2 || undefined,
+      tentativeTime2: tentativeTime2 || undefined,
       status: 'pendiente'
     };
 
@@ -225,7 +235,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
             Pide tu Cotización de Mallas de Seguridad
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            Ingresa las medidas de tus ventanas. Al presionar <strong>Ejecutar Enviar</strong>, te enviaremos un aviso oficial a tu correo confirmando que estás cotizando (sin precio anticipado) y derivaremos los datos a la central técnica.
+            Nombre, teléfono, comuna y una foto o las medidas aproximadas. Te contactamos por WhatsApp. El correo es opcional.
           </p>
         </div>
 
@@ -260,7 +270,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
         <div className="space-y-4">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <User className="w-4 h-4 text-sky-600" />
-            1. Datos de Contacto y Envío de la Cotización
+            1. Tus datos
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -276,7 +286,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                   id="input-client-name"
                   type="text"
                   required
-                  placeholder="Ej: Ruth Cerna"
+                  placeholder="Ej: Camila Morales"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400"
@@ -309,14 +319,13 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                 htmlFor="input-client-email"
                 className="block text-xs font-semibold text-slate-700 mb-1"
               >
-                Correo Electrónico <span className="text-rose-500">*</span>
+                Correo electrónico <span className="text-[10px] text-slate-400 font-normal ml-1">(opcional)</span>
               </label>
               <div className="relative">
                 <input
                   id="input-client-email"
                   type="email"
-                  required
-                  placeholder="ruth.cerna@gmail.com"
+                  placeholder="opcional"
                   value={clientEmail}
                   onChange={(e) => setClientEmail(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400"
@@ -336,7 +345,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                   id="input-client-phone"
                   type="tel"
                   required
-                  placeholder="+56 9 9123 4567"
+                  placeholder="+56 9 1234 5678"
                   value={clientPhone}
                   onChange={(e) => setClientPhone(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400"
@@ -366,12 +375,13 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                 htmlFor="input-client-city"
                 className="block text-xs font-semibold text-slate-700 mb-1"
               >
-                Comuna / Ciudad
+                Comuna <span className="text-rose-500">*</span>
               </label>
               <input
                 id="input-client-city"
                 type="text"
-                placeholder="Ej: Las Condes, Santiago"
+                required
+                placeholder="Ej: Las Condes"
                 value={clientCity}
                 onChange={(e) => setClientCity(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400"
@@ -397,6 +407,42 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                 <option value="otro">Otro tipo de espacio</option>
               </select>
             </div>
+
+            <div className="sm:col-span-2 lg:col-span-4">
+              <label
+                htmlFor="input-client-photo"
+                className="block text-xs font-semibold text-slate-700 mb-1"
+              >
+                Foto del balcón, ventana o terraza
+                <span className="text-[10px] text-slate-400 font-normal ml-1">(opcional si envías medidas)</span>
+              </label>
+              <div className="flex flex-wrap items-center gap-3">
+                <label
+                  htmlFor="input-client-photo"
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-semibold cursor-pointer hover:bg-slate-50"
+                >
+                  <Camera className="w-4 h-4 text-sky-600" />
+                  <span>{clientPhotoName ? 'Cambiar foto' : 'Adjuntar foto'}</span>
+                </label>
+                <input
+                  id="input-client-photo"
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => handlePhotoChange(e.target.files?.[0])}
+                />
+                {clientPhotoPreview && (
+                  <img
+                    src={clientPhotoPreview}
+                    alt="Foto adjunta"
+                    className="h-14 w-20 object-cover rounded-lg border border-slate-200"
+                  />
+                )}
+                {clientPhotoName && (
+                  <span className="text-xs text-slate-500 truncate max-w-[220px]">{clientPhotoName}</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -406,10 +452,10 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Building className="w-4 h-4 text-sky-600" />
-                2. Medidas de las Ventanas (Ingresa 1 o varias)
+                2. Medidas aproximadas (o adjunta una foto)
               </h3>
               <p className="text-xs text-slate-500">
-                Indica el alto y ancho aproximado de cada ventana a proteger. No te preocupes si no es exacto al milímetro; nuestro técnico verificará en terreno.
+                Si no tienes las medidas, basta con una foto. El técnico las confirma en terreno.
               </p>
             </div>
 
@@ -474,13 +520,12 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                         htmlFor={`input-window-height-${index + 1}`}
                         className="block text-xs font-semibold text-slate-700 mb-1"
                       >
-                        Alto ({w.unit}) <span className="text-rose-500">*</span>
+                        Alto ({w.unit})
                       </label>
                       <div className="flex items-center">
                         <input
                           id={`input-window-height-${index + 1}`}
                           type="text"
-                          required
                           value={w.height}
                           onChange={(e) => handleWindowChange(w.id, 'height', e.target.value)}
                           placeholder={w.unit === 'm' ? '1.40' : '140'}
@@ -498,13 +543,12 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                         htmlFor={`input-window-width-${index + 1}`}
                         className="block text-xs font-semibold text-slate-700 mb-1"
                       >
-                        Ancho ({w.unit}) <span className="text-rose-500">*</span>
+                        Ancho ({w.unit})
                       </label>
                       <div className="flex items-center">
                         <input
                           id={`input-window-width-${index + 1}`}
                           type="text"
-                          required
                           value={w.width}
                           onChange={(e) => handleWindowChange(w.id, 'width', e.target.value)}
                           placeholder={w.unit === 'm' ? '2.00' : '200'}
@@ -594,10 +638,10 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
           <div>
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-sky-600" />
-              3. Fechas y Horas Tentativas para Instalar la Malla
+              3. Fechas tentativas (opcional)
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Propón dos opciones de fecha y hora que te acomoden para realizar la instalación. En la pantalla de recepción, el administrador podrá aceptar una de ellas o proponerte un horario exacto.
+              Si ya tienes días en mente, indícalos. Si no, coordinamos después por WhatsApp.
             </p>
           </div>
 
@@ -625,7 +669,6 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                     value={tentativeDate1}
                     onChange={(e) => setTentativeDate1(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-200 text-sm text-slate-800 outline-none bg-white font-medium"
-                    required
                   />
                 </div>
                 <div>
@@ -641,7 +684,6 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                     value={tentativeTime1}
                     onChange={(e) => setTentativeTime1(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-200 text-sm text-slate-800 outline-none bg-white font-medium"
-                    required
                   />
                 </div>
               </div>
@@ -670,7 +712,6 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                     value={tentativeDate2}
                     onChange={(e) => setTentativeDate2(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-200 text-sm text-slate-800 outline-none bg-white font-medium"
-                    required
                   />
                 </div>
                 <div>
@@ -686,7 +727,6 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                     value={tentativeTime2}
                     onChange={(e) => setTentativeTime2(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-200 text-sm text-slate-800 outline-none bg-white font-medium"
-                    required
                   />
                 </div>
               </div>
@@ -718,10 +758,10 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
             <Sparkles className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <p className="font-bold text-sky-900">
-                Aviso al Cliente: Solicitud de Cotización sin Precio Anticipado
+                Sin precio inmediato
               </p>
               <p className="text-sky-800 leading-relaxed">
-                Al ejecutar la actividad <strong>Enviar</strong>, no se colocará un precio inmediato. Te notificaremos a tu correo que tu cotización ha sido ingresada para que nuestro equipo técnico evalúe los detalles y te entregue la propuesta formal definitiva.
+                Al enviar, te contactamos por WhatsApp o teléfono para coordinar y entregar el presupuesto. El correo es opcional.
               </p>
             </div>
           </div>
@@ -757,12 +797,12 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Ejecutando envío...</span>
+                  <span>Enviando...</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4 stroke-[2.5]" />
-                  <span>Ejecutar Actividad Enviar</span>
+                  <span>Enviar cotización</span>
                 </>
               )}
             </button>

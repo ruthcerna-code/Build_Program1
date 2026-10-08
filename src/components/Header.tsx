@@ -5,25 +5,21 @@ import {
   Home,
   Phone,
   Sparkles,
-  FileText,
-  CheckCircle2,
-  UserCheck,
   Wrench,
-  User,
   LogIn,
   LogOut,
   KeyRound,
   ChevronDown,
   Database,
-  Bot
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
-import { isFirebaseConfigured } from '../services/firebaseClient';
-import { isUserAdmin, isUserGmailConnected } from '../services/authStorage';
+import { isUserAdmin, isUserTechnician } from '../services/authStorage';
+import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
 
 export type AppView =
   | 'client'
+  | 'quote_mesh'
   | 'admin'
   | 'received_quotes'
   | 'approved_quotes'
@@ -39,33 +35,29 @@ interface HeaderProps {
   technicianOrdersCount: number;
   currentUser?: UserAccount | null;
   onOpenLogin?: (mode?: 'login' | 'recover' | 'reset_password') => void;
-  onOpenGmailConnect?: () => void;
   onLogout?: () => void;
   onOpenSupabaseModal?: () => void;
-  onOpenAssistant?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentView,
   onNavigate,
   pendingQuotesCount,
-  receivedQuotesCount,
-  approvedQuotesCount,
   technicianOrdersCount,
   currentUser,
   onOpenLogin,
-  onOpenGmailConnect,
   onLogout,
   onOpenSupabaseModal,
-  onOpenAssistant,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const firebaseConnected = isFirebaseConfigured();
   const supabaseConnected = isSupabaseConfigured();
-  const cloudConnected = firebaseConnected || supabaseConnected;
-
   const isAdmin = isUserAdmin(currentUser || null);
-  const isGmailConnected = isUserGmailConnected(currentUser || null);
+  const isTechnician = isUserTechnician(currentUser || null);
+  const showInternalTools = isAdmin || isTechnician;
+
+  const navBase = isAdmin
+    ? 'bg-slate-800/90 border-slate-700/80 text-slate-200'
+    : 'bg-slate-100 border-slate-200 text-slate-700';
 
   return (
     <header
@@ -76,7 +68,6 @@ export const Header: React.FC<HeaderProps> = ({
           : 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs text-slate-900'
       }`}
     >
-      {/* Top Administrative Status Bar (Visible only to Admin) */}
       {isAdmin && (
         <div
           id="admin-top-status-strip"
@@ -91,22 +82,21 @@ export const Header: React.FC<HeaderProps> = ({
               Admin: {currentUser?.email || 'rcv.informacion@gmail.com'}
             </span>
             <span className="text-[10px] bg-slate-950/20 px-2 py-0.2 rounded font-bold">
-              Firestore BD Conectada
+              {supabaseConnected ? 'Supabase conectado' : 'BD local'}
             </span>
           </div>
         </div>
       )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18">
-          {/* Brand Logo & Tagline */}
+        <div className="flex items-center justify-between h-18 gap-3">
           <div
             id="brand-logo-container"
             onClick={() => onNavigate('client')}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-3 cursor-pointer group min-w-0"
           >
             <div
-              className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105 ${
+              className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105 shrink-0 ${
                 isAdmin
                   ? 'bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 shadow-amber-500/20'
                   : 'bg-gradient-to-tr from-sky-600 to-blue-700 text-white shadow-sky-500/20'
@@ -114,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span
                   className={`text-xl font-black tracking-tight ${
@@ -127,18 +117,18 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </span>
                 {isAdmin ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-black bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/40 uppercase tracking-wider">
-                    👑 Portal Administrador
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/40 uppercase tracking-wider">
+                    Portal Administrador
                   </span>
                 ) : (
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200/70">
+                  <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200/70">
                     <Sparkles className="w-3 h-3 text-sky-600" />
                     Mallas de seguridad
                   </span>
                 )}
               </div>
               <p
-                className={`text-xs font-medium ${
+                className={`text-xs font-medium truncate ${
                   isAdmin ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
@@ -149,20 +139,13 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Navigation between Views based on Admin & Gmail Auth */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <nav
               id="navigation-toggle"
-              className={`flex items-center p-1.5 rounded-xl border overflow-x-auto max-w-full gap-1 ${
-                isAdmin
-                  ? 'bg-slate-800/90 border-slate-700/80 text-slate-200'
-                  : 'bg-slate-100 border-slate-200 text-slate-700'
-              }`}
+              className={`flex items-center p-1.5 rounded-xl border overflow-x-auto max-w-full gap-1 ${navBase}`}
             >
               {isAdmin ? (
-                /* NAVEGACIÓN ADMINISTRADOR: Home Admin, Recepción (Admin), Pedidos Técnicos */
                 <>
-                  {/* Pantalla 1 Admin: Home Administrador */}
                   <button
                     id="btn-nav-client"
                     type="button"
@@ -172,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
                         : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
                     }`}
-                    title="Ir al Home del Administrador (Dashboard Ejecutivo)"
+                    title="Ir al Home del Administrador"
                   >
                     <Home
                       className={`w-3.5 h-3.5 ${
@@ -182,7 +165,6 @@ export const Header: React.FC<HeaderProps> = ({
                     <span>Home Admin</span>
                   </button>
 
-                  {/* Pantalla 2 Admin: Recepción de Cotizaciones */}
                   <button
                     id="btn-nav-admin"
                     type="button"
@@ -199,14 +181,14 @@ export const Header: React.FC<HeaderProps> = ({
                         currentView === 'admin' ? 'text-white' : 'text-sky-400'
                       }`}
                     />
-                    <span>1. Recepción (Admin)</span>
+                    <span className="hidden sm:inline">Recepción</span>
                     {pendingQuotesCount > 0 && (
                       <span
                         id="badge-pending-count"
-                        className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                           currentView === 'admin'
                             ? 'bg-white text-sky-700'
-                            : 'bg-amber-400 text-slate-950 font-black animate-pulse'
+                            : 'bg-amber-400 text-slate-950 font-black'
                         }`}
                       >
                         {pendingQuotesCount}
@@ -214,7 +196,6 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                   </button>
 
-                  {/* Pantalla 3 Admin: Recepción de Pedidos por Técnicos */}
                   <button
                     id="btn-nav-technician-orders"
                     type="button"
@@ -224,17 +205,17 @@ export const Header: React.FC<HeaderProps> = ({
                         ? 'bg-indigo-600 text-white shadow-sm'
                         : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
                     }`}
-                    title="Recepción de pedidos por técnicos: registrar notas, aceptar solicitud o indicar trabajo realizado"
+                    title="Recepción de pedidos por técnicos"
                   >
                     <Wrench
                       className={`w-3.5 h-3.5 ${
                         currentView === 'technician_orders' ? 'text-white' : 'text-indigo-400'
                       }`}
                     />
-                    <span>2. Pedidos Técnicos</span>
+                    <span className="hidden sm:inline">Pedidos</span>
                     {technicianOrdersCount > 0 && (
                       <span
-                        className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                           currentView === 'technician_orders'
                             ? 'bg-white text-indigo-900'
                             : 'bg-indigo-500/30 text-indigo-300'
@@ -245,119 +226,112 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
                   </button>
                 </>
-              ) : (
-                /* NAVEGACIÓN CLIENTES / VISITANTES */
+              ) : isTechnician ? (
                 <>
-                  {/* Inicio */}
                   <button
                     id="btn-nav-client"
                     type="button"
                     onClick={() => onNavigate('client')}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
                       currentView === 'client'
                         ? 'bg-white text-sky-900 shadow-xs font-bold'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                     }`}
-                    title="Página de inicio, oferta y objetivos de la empresa"
                   >
                     <Home className="w-3.5 h-3.5 text-sky-600" />
                     <span>Inicio</span>
                   </button>
-
-                  {/* Cotizar Malla: SOLO visible si el usuario ya está autenticado con Gmail */}
-                  {isGmailConnected ? (
-                    <button
-                      id="btn-nav-quote-mesh"
-                      type="button"
-                      onClick={() => onNavigate('quote_mesh' as any)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                        (currentView as string) === 'quote_mesh'
-                          ? 'bg-gradient-to-r from-sky-600 to-blue-700 text-white shadow-xs'
-                          : 'text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200'
-                      }`}
-                      title="Cotizar mallas para ventanas (Autenticado con Gmail)"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                      <span>Cotizar Malla</span>
-                      <span className="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        Gmail ✓
+                  <button
+                    id="btn-nav-technician-orders"
+                    type="button"
+                    onClick={() => onNavigate('technician_orders')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                      currentView === 'technician_orders'
+                        ? 'bg-white text-indigo-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <Wrench className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Pedidos</span>
+                    {technicianOrdersCount > 0 && (
+                      <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                        {technicianOrdersCount}
                       </span>
-                    </button>
-                  ) : onOpenGmailConnect ? (
-                    <button
-                      id="btn-nav-auth-gmail"
-                      type="button"
-                      onClick={onOpenGmailConnect}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 transition-all whitespace-nowrap cursor-pointer"
-                      title="Autentícate con tu cuenta de Gmail para acceder a Cotizar Malla"
-                    >
-                      <span className="w-3.5 h-3.5 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px] font-black">
-                        G
-                      </span>
-                      <span>Autenticar con Gmail</span>
-                    </button>
-                  ) : null}
-
-                  {/* Asistente Virtual para Clientes por RUT */}
-                  {onOpenAssistant && (
-                    <button
-                      id="btn-nav-assistant-client"
-                      type="button"
-                      onClick={onOpenAssistant}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
-                      title="Asistente para Clientes: consulta información y estado de tus cotizaciones por RUT"
-                    >
-                      <Bot className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Asistente por RUT</span>
-                    </button>
-                  )}
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    id="btn-nav-client"
+                    type="button"
+                    onClick={() => onNavigate('client')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                      currentView === 'client'
+                        ? 'bg-white text-sky-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <Home className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Inicio</span>
+                  </button>
+                  <button
+                    id="btn-nav-quote-mesh"
+                    type="button"
+                    onClick={() => onNavigate('quote_mesh')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                      currentView === 'quote_mesh'
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200'
+                    }`}
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${currentView === 'quote_mesh' ? 'text-amber-300' : 'text-sky-600'}`} />
+                    <span>Cotizar</span>
+                  </button>
                 </>
               )}
             </nav>
 
-            {/* Quick Contact badge on desktop */}
-            <div className="hidden 2xl:flex items-center gap-2 pl-3 border-l border-slate-200 text-xs">
-              <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
-                <Phone className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[11px] text-slate-400 font-medium">Asistencia inmediata</p>
-                <p className="font-bold text-slate-800">+56 9 8000 2400</p>
-              </div>
-            </div>
+            {!isAdmin && (
+              <a
+                id="btn-header-whatsapp"
+                href={WHATSAPP_QUOTE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:flex items-center gap-2 pl-2 pr-1 border-l border-slate-200 text-xs hover:opacity-80 transition-opacity"
+              >
+                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-400 font-medium">WhatsApp</p>
+                  <p className="font-bold text-slate-800">{CONTACT_PHONE_DISPLAY}</p>
+                </div>
+              </a>
+            )}
 
-            {/* CLOUD DATABASE STATUS / CONFIG BUTTON */}
-            {onOpenSupabaseModal && (
+            {showInternalTools && onOpenSupabaseModal && (
               <button
                 id="btn-open-supabase-modal"
                 type="button"
                 onClick={onOpenSupabaseModal}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs ${
-                  cloudConnected
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                  supabaseConnected
                     ? 'bg-amber-50/90 text-amber-950 border-amber-300 hover:bg-amber-100'
                     : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
                 }`}
-                title={
-                  supabaseConnected
-                    ? 'Supabase conectado (base principal)'
-                    : firebaseConnected
-                    ? 'Google Firebase Firestore conectado y activo'
-                    : 'Configuración y sincronización en la nube'
-                }
+                title={supabaseConnected ? 'Supabase conectado' : 'Configuración de base de datos'}
               >
-                <Database className={`w-3.5 h-3.5 ${cloudConnected ? 'text-amber-600' : 'text-slate-400'}`} />
-                <span className="hidden xl:inline">
-                  {supabaseConnected ? 'Supabase' : firebaseConnected ? 'Firebase BD' : 'BD Nube'}
-                </span>
+                <Database className={`w-3.5 h-3.5 ${supabaseConnected ? 'text-amber-600' : 'text-slate-400'}`} />
+                <span className="hidden xl:inline">Supabase</span>
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    cloudConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
+                    supabaseConnected ? 'bg-emerald-500' : 'bg-amber-400'
                   }`}
                 />
               </button>
             )}
 
-            {/* USER LOGIN / PROFILE BUTTON */}
             <div className={`relative pl-2 sm:pl-3 border-l ${isAdmin ? 'border-slate-800' : 'border-slate-200'}`}>
               {currentUser ? (
                 <div className="relative">
@@ -378,18 +352,21 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
                     </div>
-                    <div className="hidden sm:block text-left">
+                    <div className="hidden md:block text-left">
                       <div className={`text-xs font-bold leading-tight flex items-center gap-1 ${isAdmin ? 'text-white' : 'text-slate-900'}`}>
                         <span className="truncate max-w-[110px]">{currentUser.fullName || currentUser.email}</span>
                         <ChevronDown className="w-3 h-3 text-slate-400" />
                       </div>
                       <span className={`text-[10px] font-semibold capitalize block ${isAdmin ? 'text-amber-400' : 'text-sky-700'}`}>
-                        {currentUser.role === 'admin' ? '🛡️ Administrador' : currentUser.role === 'tecnico' ? '🔧 Técnico' : '👤 Cliente'}
+                        {currentUser.role === 'admin'
+                          ? 'Administrador'
+                          : currentUser.role === 'tecnico'
+                          ? 'Técnico'
+                          : 'Cliente'}
                       </span>
                     </div>
                   </button>
 
-                  {/* Dropdown menu */}
                   {showUserMenu && (
                     <div
                       id="menu-user-dropdown"
@@ -397,14 +374,14 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <div className="px-3.5 py-2 border-b border-slate-100">
                         <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
-                          Usuario Activo
+                          Usuario activo
                         </span>
                         <p className="font-bold text-slate-900 truncate mt-0.5">{currentUser.fullName}</p>
                         <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
                       </div>
 
                       <div className="py-1">
-                        {onOpenSupabaseModal && (
+                        {showInternalTools && onOpenSupabaseModal && (
                           <button
                             type="button"
                             onClick={() => {
@@ -415,10 +392,10 @@ export const Header: React.FC<HeaderProps> = ({
                           >
                             <div className="flex items-center gap-2">
                               <Database className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Base de Datos en Nube</span>
+                              <span>Base de datos</span>
                             </div>
                             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                              Activo
+                              {supabaseConnected ? 'Activo' : 'Local'}
                             </span>
                           </button>
                         )}
@@ -432,7 +409,7 @@ export const Header: React.FC<HeaderProps> = ({
                           className="w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700 flex items-center gap-2 transition-colors"
                         >
                           <KeyRound className="w-3.5 h-3.5 text-sky-600" />
-                          <span>Cambiar Contraseña</span>
+                          <span>Cambiar contraseña</span>
                         </button>
                       </div>
 
@@ -446,7 +423,7 @@ export const Header: React.FC<HeaderProps> = ({
                           className="w-full px-3.5 py-2 text-left hover:bg-rose-50 text-rose-700 flex items-center gap-2 font-medium transition-colors"
                         >
                           <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                          <span>Cerrar Sesión</span>
+                          <span>Cerrar sesión</span>
                         </button>
                       </div>
                     </div>
@@ -458,10 +435,10 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={() => onOpenLogin && onOpenLogin('login')}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap"
-                  title="Iniciar sesión o crear cuenta inmediata"
+                  title="Iniciar sesión"
                 >
                   <LogIn className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Iniciar Sesión</span>
+                  <span className="hidden sm:inline">Cuenta</span>
                 </button>
               )}
             </div>

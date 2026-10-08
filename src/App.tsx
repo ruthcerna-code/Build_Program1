@@ -9,7 +9,6 @@ import { TechnicianOrdersView } from './components/TechnicianOrdersView';
 import { ClientQuotePortalView } from './components/ClientQuotePortalView';
 import { AdminQuoteEditorModal } from './components/AdminQuoteEditorModal';
 import { LoginModal, AuthMode } from './components/LoginModal';
-import { GmailConnectModal } from './components/GmailConnectModal';
 import { SupabaseModal } from './components/SupabaseModal';
 import { ClientAssistantModal } from './components/ClientAssistantModal';
 import { ClientAssistantFloatingButton } from './components/ClientAssistantFloatingButton';
@@ -25,17 +24,15 @@ import {
   addQuoteRequest,
   updateQuoteWithAdminDetails,
   deleteQuoteRequest,
-  updateQuoteStatus,
   registerQuoteAcceptance,
   updateQuotePayment,
   assignInstallerToQuote,
   unassignInstallerFromQuote,
   updateTechnicianExecution,
-  syncWithSupabaseDatabase,
   syncWithCloudDatabases,
 } from './services/quoteStorage';
-import { isSupabaseConfigured } from './services/supabaseClient';
-import { getCurrentUser, logoutUser, isUserGmailConnected, isUserAdmin, syncUsersWithSupabase } from './services/authStorage';
+import { getCurrentUser, logoutUser, isUserAdmin, isInternalUser, syncUsersWithSupabase } from './services/authStorage';
+import { CONTACT_PHONE_DISPLAY, CONTACT_EMAIL, CONTACT_COVERAGE, WHATSAPP_QUOTE_URL } from './constants/contact';
 import { recordUserAccessLog, syncAccessLogsWithSupabase } from './services/accessLogService';
 import {
   ShieldCheck,
@@ -43,11 +40,6 @@ import {
   Mail,
   MapPin,
   CheckCircle2,
-  ArrowRight,
-  Eye,
-  Sparkles,
-  UserCheck,
-  FileText,
   Wrench,
   Check
 } from 'lucide-react';
@@ -65,7 +57,6 @@ export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => getCurrentUser());
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState<AuthMode>('login');
   const [authToast, setAuthToast] = useState<string | null>(null);
 
@@ -123,20 +114,7 @@ export default function App() {
   };
 
   const handleNavigateToQuoteMesh = () => {
-    if (currentUser && currentUser.email && currentUser.email.toLowerCase().endsWith('@gmail.com')) {
-      setCurrentView('quote_mesh');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      setIsGmailModalOpen(true);
-    }
-  };
-
-  const handleGmailConnected = (user: UserAccount) => {
-    setCurrentUser(user);
-    recordUserAccessLog(user, 'login', `Autenticación con cuenta Gmail: ${user.email}`);
     setCurrentView('quote_mesh');
-    setAuthToast(`¡Conectado con cuenta Gmail: ${user.email}! Ya puedes ingresar los datos de tu cotización.`);
-    setTimeout(() => setAuthToast(null), 4500);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -314,10 +292,8 @@ export default function App() {
         technicianOrdersCount={technicianOrdersCount}
         currentUser={currentUser}
         onOpenLogin={handleOpenLogin}
-        onOpenGmailConnect={() => setIsGmailModalOpen(true)}
         onLogout={handleLogout}
         onOpenSupabaseModal={() => setShowSupabaseModal(true)}
-        onOpenAssistant={() => setIsAssistantOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -326,7 +302,6 @@ export default function App() {
           <HomeClientView
             quotes={quotes}
             onGoToQuoteMesh={handleNavigateToQuoteMesh}
-            onAuthenticateWithGmail={() => setIsGmailModalOpen(true)}
             onGoToAdmin={() => {
               setCurrentView('admin');
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -348,52 +323,14 @@ export default function App() {
         )}
 
         {currentView === 'quote_mesh' && (
-          !isUserGmailConnected(currentUser) ? (
-            <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4 animate-fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
-                <Mail className="w-8 h-8" />
-              </div>
-              <h2 className="text-xl font-black text-slate-900">
-                Autenticación Requerida con Gmail
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-                Para solicitar cotización de mallas de seguridad, esta opción exige autenticarse previamente con tu cuenta de Gmail (@gmail.com). Conecta tu cuenta para ingresar las medidas de tus ventanas.
-              </p>
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsGmailModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-2"
-                >
-                  <span className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-black">
-                    G
-                  </span>
-                  <span>Autenticar con Gmail</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('client')}
-                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
-                >
-                  Volver al Inicio
-                </button>
-              </div>
-            </div>
-          ) : (
-            <QuoteMeshView
-              onQuoteCreated={handleQuoteCreated}
-              currentUser={currentUser}
-              onBackToHome={() => {
-                setCurrentView('client');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onGoToAdmin={() => {
-                setCurrentView('admin');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onChangeGmailAccount={() => setIsGmailModalOpen(true)}
-            />
-          )
+          <QuoteMeshView
+            onQuoteCreated={handleQuoteCreated}
+            currentUser={currentUser}
+            onBackToHome={() => {
+              setCurrentView('client');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         )}
 
         {currentView === 'admin' && (
@@ -532,14 +469,6 @@ export default function App() {
         prefilledEmail={currentUser?.email || ''}
       />
 
-      {/* Gmail Account Connection Modal to start Quoting */}
-      <GmailConnectModal
-        isOpen={isGmailModalOpen}
-        onClose={() => setIsGmailModalOpen(false)}
-        onConnected={handleGmailConnected}
-        defaultEmail={currentUser?.email || 'ruth.cerna@gmail.com'}
-      />
-
       {/* Supabase PostgreSQL Database Integration & Sync Modal */}
       <SupabaseModal
         isOpen={showSupabaseModal}
@@ -557,8 +486,8 @@ export default function App() {
         onSelectQuoteToView={(q) => handleViewClientQuoteScreen(q)}
       />
 
-      {/* Floating Customer Assistant Trigger Button (Accessible to clients) */}
-      {!isUserAdmin(currentUser) && (
+      {(currentView === 'client_portal' || currentView === 'received_quotes') &&
+        !isUserAdmin(currentUser) && (
         <ClientAssistantFloatingButton
           onClick={() => setIsAssistantOpen(true)}
           quotesCount={
@@ -618,7 +547,7 @@ export default function App() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Perfiles Aluminio
+                  No tapa la vista
                 </span>
                 <span className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -627,137 +556,118 @@ export default function App() {
               </div>
             </div>
 
-            {/* Navigation links */}
-            <div className="space-y-2">
-              <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
-                Navegación del Sistema
-              </span>
-              <ul className="space-y-2">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentView('client');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="hover:text-white transition-colors"
-                  >
-                    1. Inicio y Cotizador
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentView('admin');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="hover:text-white transition-colors flex items-center gap-1.5"
-                  >
-                    <span>2. Recepción (Admin)</span>
-                    {pendingQuotesCount > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-bold text-[10px]">
-                        {pendingQuotesCount}
-                      </span>
-                    )}
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentView('received_quotes');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="hover:text-white transition-colors"
-                  >
-                    3. Cotizaciones Recibidas por Cliente
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentView('approved_quotes');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="hover:text-white transition-colors"
-                  >
-                    4. Cotizaciones Aprobadas & Instalador
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentView('technician_orders');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="hover:text-white transition-colors flex items-center gap-1.5"
-                  >
-                    <span>5. Recepción de Pedidos por Técnicos</span>
-                    {technicianOrdersCount > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-sky-600 text-white font-bold text-[10px]">
-                        {technicianOrdersCount}
-                      </span>
-                    )}
-                  </button>
-                </li>
-                <li className="pt-2 border-t border-slate-800">
-                  {currentUser ? (
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400 truncate">
-                        Conectado: <strong className="text-sky-400">{currentUser.fullName}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="text-rose-400 hover:text-rose-300 font-bold ml-2 underline cursor-pointer"
-                      >
-                        Salir
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenLogin('login')}
-                      className="text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <span>🔐 Iniciar Sesión / Crear Cuenta</span>
-                    </button>
-                  )}
-                </li>
-                {!currentUser && (
+            {isInternalUser(currentUser) ? (
+              <div className="space-y-2">
+                <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
+                  Operación
+                </span>
+                <ul className="space-y-2">
                   <li>
                     <button
                       type="button"
-                      onClick={() => handleOpenLogin('recover')}
-                      className="text-slate-400 hover:text-sky-300 transition-colors text-[11px] cursor-pointer"
+                      onClick={() => {
+                        setCurrentView('client');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors"
                     >
-                      ¿Olvidaste tu contraseña? Recuperar aquí
+                      Inicio
                     </button>
                   </li>
-                )}
-              </ul>
-            </div>
+                  {isUserAdmin(currentUser) && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentView('admin');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="hover:text-white transition-colors flex items-center gap-1.5"
+                      >
+                        <span>Recepción</span>
+                        {pendingQuotesCount > 0 && (
+                          <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-bold text-[10px]">
+                            {pendingQuotesCount}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )}
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView('technician_orders');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors flex items-center gap-1.5"
+                    >
+                      <span>Pedidos técnicos</span>
+                      {technicianOrdersCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-sky-600 text-white font-bold text-[10px]">
+                          {technicianOrdersCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
+                  Cotizar
+                </span>
+                <ul className="space-y-2">
+                  <li>
+                    <button
+                      type="button"
+                      onClick={handleNavigateToQuoteMesh}
+                      className="hover:text-white transition-colors"
+                    >
+                      Pedir cotización
+                    </button>
+                  </li>
+                  <li>
+                    <a
+                      href={WHATSAPP_QUOTE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-white transition-colors"
+                    >
+                      Escribir por WhatsApp
+                    </a>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => setIsAssistantOpen(true)}
+                      className="hover:text-white transition-colors"
+                    >
+                      Ya cotizaste? Consulta por RUT
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
 
-            {/* Contact info */}
             <div className="space-y-2">
               <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
-                Atención y Contacto
+                Contacto y cobertura
               </span>
               <ul className="space-y-2 text-slate-400">
                 <li className="flex items-center gap-2">
                   <Phone className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>+56 9 8000 2400 (WhatsApp)</span>
+                  <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                    {CONTACT_PHONE_DISPLAY} (WhatsApp)
+                  </a>
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>cotizaciones@mallas-seguras.cl</span>
+                  <span>{CONTACT_EMAIL}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>Cobertura en toda la Región Metropolitana y alrededores</span>
+                  <span>{CONTACT_COVERAGE}</span>
                 </li>
               </ul>
             </div>
@@ -765,7 +675,7 @@ export default function App() {
 
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
             <p>&copy; {new Date().getFullYear()} MallasSeguras &bull; Todos los derechos reservados.</p>
-            <p>Sistema de Cotización y Gestión Técnica de Mallas para Ventanas</p>
+            <p>Mallas de seguridad para ventanas, balcones y terrazas</p>
           </div>
         </div>
       </footer>

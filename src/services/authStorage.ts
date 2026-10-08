@@ -116,6 +116,14 @@ export function isUserAdmin(user: UserAccount | null): boolean {
   );
 }
 
+export function isUserTechnician(user: UserAccount | null): boolean {
+  return user?.role === 'tecnico';
+}
+
+export function isInternalUser(user: UserAccount | null): boolean {
+  return isUserAdmin(user) || isUserTechnician(user);
+}
+
 /**
  * Connect or register immediately via Gmail account
  */

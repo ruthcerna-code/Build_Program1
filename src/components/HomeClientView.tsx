@@ -3,12 +3,11 @@ import { CompanyGoalAndOffer } from './CompanyGoalAndOffer';
 import { HomeAdminView } from './HomeAdminView';
 import { QuoteRequest, UserAccount } from '../types';
 import { isUserAdmin } from '../services/authStorage';
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 interface HomeClientViewProps {
   quotes: QuoteRequest[];
   onGoToQuoteMesh: () => void;
-  onAuthenticateWithGmail: () => void;
   onGoToAdmin?: () => void;
   onGoToTechnicianOrders?: () => void;
   onGoToAccessLogs?: () => void;
@@ -20,7 +19,6 @@ interface HomeClientViewProps {
 export const HomeClientView: React.FC<HomeClientViewProps> = ({
   quotes,
   onGoToQuoteMesh,
-  onAuthenticateWithGmail,
   onGoToAdmin,
   onGoToTechnicianOrders,
   onGoToAccessLogs,
@@ -72,11 +70,7 @@ export const HomeClientView: React.FC<HomeClientViewProps> = ({
       {/* Presentation of Offer and Company Goal */}
       <CompanyGoalAndOffer
         onGoToQuoteMesh={onGoToQuoteMesh}
-        onAuthenticateWithGmail={onAuthenticateWithGmail}
-        onGoToAdmin={onGoToAdmin}
-        onGoToTechnicianOrders={onGoToTechnicianOrders}
         onOpenAssistant={onOpenAssistant}
-        currentUser={currentUser}
       />
     </div>
   );

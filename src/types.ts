@@ -72,6 +72,7 @@ export interface QuoteRequest {
   windows: WindowItem[];
   totalAreaM2: number;
   clientComments?: string;
+  clientPhotoName?: string;
   // Two tentative installation dates & times requested by user
   tentativeDate1?: string;
   tentativeTime1?: string;
