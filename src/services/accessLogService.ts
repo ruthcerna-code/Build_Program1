@@ -1,5 +1,4 @@
 import { UserAccessLog, UserAccount, AccessActionType } from '../types';
-import { saveAccessLogInFirestore, fetchAccessLogsFromFirestore, isFirebaseConfigured } from './firebaseClient';
 import { getStoredQuotes } from './quoteStorage';
 
 const ACCESS_STORAGE_KEY = 'mallas_user_access_logs_v1';
@@ -140,45 +139,19 @@ export const recordUserAccessLog = (
   const updated = [newLog, ...current].slice(0, 100);
   saveAccessLogsToStorage(updated);
 
-  // Sync to Firebase Firestore asynchronously
-  if (isFirebaseConfigured()) {
-    saveAccessLogInFirestore(newLog).catch((err) =>
-      console.warn('Firebase access log sync notice:', err)
-    );
-  }
-
   return newLog;
 };
 
 /**
- * Synchronizes access logs with Firestore
+ * Firestore sync is disabled. Logs stay in the browser.
  */
 export const syncAccessLogsWithFirestore = async (): Promise<UserAccessLog[]> => {
-  if (!isFirebaseConfigured()) {
-    return getStoredAccessLogs();
-  }
+  return getStoredAccessLogs();
+};
 
-  try {
-    const remoteLogs = await fetchAccessLogsFromFirestore();
-    if (remoteLogs && remoteLogs.length > 0) {
-      const local = getStoredAccessLogs();
-      const existingIds = new Set(remoteLogs.map((l) => l.id));
-      const merged = [...remoteLogs];
-      for (const loc of local) {
-        if (!existingIds.has(loc.id)) {
-          merged.push(loc);
-        }
-      }
-      merged.sort(
-        (a, b) =>
-          new Date(b.connectedAt).getTime() - new Date(a.connectedAt).getTime()
-      );
-      saveAccessLogsToStorage(merged);
-      return merged;
-    }
-  } catch (err) {
-    console.warn('Error fetching remote access logs:', err);
-  }
-
+/**
+ * Does not push example logs to Supabase. Logs stay in the browser until Auth.
+ */
+export const syncAccessLogsWithSupabase = async (): Promise<UserAccessLog[]> => {
   return getStoredAccessLogs();
 };

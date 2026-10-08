@@ -334,7 +334,7 @@ export const ClientQuotePortalView: React.FC<ClientQuotePortalViewProps> = ({
                       <span className="font-semibold capitalize">{w.meshType}</span>
                       <span className="text-[11px] text-slate-500 block">
                         {w.meshType === 'monofilamento'
-                          ? '0.70mm Invisible'
+                          ? '0.70mm'
                           : '0.80mm Reforzado'}
                       </span>
                     </td>

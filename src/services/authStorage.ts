@@ -116,6 +116,14 @@ export function isUserAdmin(user: UserAccount | null): boolean {
   );
 }
 
+export function isUserTechnician(user: UserAccount | null): boolean {
+  return user?.role === 'tecnico';
+}
+
+export function isInternalUser(user: UserAccount | null): boolean {
+  return isUserAdmin(user) || isUserTechnician(user);
+}
+
 /**
  * Connect or register immediately via Gmail account
  */
@@ -485,4 +493,12 @@ export function setNewPasswordWithProvisional(
  */
 export function logoutUser(): void {
   setCurrentUser(null);
+}
+
+/**
+ * Users stay in the browser until Supabase Auth is enabled.
+ * Does not push demo accounts or passwords to the cloud.
+ */
+export async function syncUsersWithSupabase(): Promise<UserAccount[]> {
+  return getStoredUsers();
 }

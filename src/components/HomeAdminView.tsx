@@ -126,7 +126,7 @@ export const HomeAdminView: React.FC<HomeAdminViewProps> = ({
                 Rol: Administrador Central
               </span>
               <span>&bull;</span>
-              <span>Base de Datos: Colecciones <code className="text-sky-200">quotes</code> y <code className="text-sky-200">access_logs</code></span>
+              <span>Base de Datos Supabase: tablas <code className="text-sky-200">quotes</code>, <code className="text-sky-200">app_users</code> y <code className="text-sky-200">access_logs</code></span>
             </div>
           </div>
 

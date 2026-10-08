@@ -10,8 +10,6 @@ import {
 } from './supabaseClient';
 import {
   isFirebaseConfigured,
-  saveQuoteToFirestore,
-  deleteQuoteFromFirestore,
   fetchQuotesFromFirestore,
   syncAllLocalQuotesToFirestore,
 } from './firebaseClient';
@@ -21,18 +19,12 @@ const EVENT_KEY = 'mallas_quotes_updated';
 
 // Helper to sync to available cloud providers
 const syncQuoteToClouds = (quote: QuoteRequest) => {
-  if (isFirebaseConfigured()) {
-    saveQuoteToFirestore(quote).catch((err) => console.warn('Firebase sync notice:', err));
-  }
   if (isSupabaseConfigured()) {
     upsertQuoteToSupabase(quote).catch((err) => console.warn('Supabase sync notice:', err));
   }
 };
 
 const deleteQuoteFromClouds = (quoteId: string) => {
-  if (isFirebaseConfigured()) {
-    deleteQuoteFromFirestore(quoteId).catch((err) => console.warn('Firebase delete notice:', err));
-  }
   if (isSupabaseConfigured()) {
     deleteQuoteFromSupabase(quoteId).catch((err) => console.warn('Supabase delete notice:', err));
   }
@@ -482,22 +474,11 @@ export const syncWithFirestoreDatabase = async (
 };
 
 /**
- * Unified helper: Synchronizes quotes from the most active cloud provider (Firebase or Supabase).
+ * Unified helper: Synchronizes quotes from Supabase only.
  */
 export const syncWithCloudDatabases = async (
   clientEmail?: string
 ): Promise<{ success: boolean; provider: 'firebase' | 'supabase' | 'none'; count: number; quotes: QuoteRequest[]; message: string }> => {
-  if (isFirebaseConfigured()) {
-    const res = await syncWithFirestoreDatabase(clientEmail);
-    return {
-      success: res.success,
-      provider: 'firebase',
-      count: res.count,
-      quotes: res.quotes,
-      message: res.message,
-    };
-  }
-
   if (isSupabaseConfigured()) {
     const res = await syncWithSupabaseDatabase(clientEmail);
     return {

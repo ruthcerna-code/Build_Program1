@@ -1,83 +1,65 @@
 import React, { useState } from 'react';
-import { UserAccount } from '../types';
 import {
   ShieldAlert,
   Eye,
   CheckCircle2,
   Award,
-  Sun,
   Hammer,
   Clock,
   ArrowRight,
-  Mail,
-  Sparkles,
   ShieldCheck,
-  Building,
   Check,
   Layers,
   X,
-  HelpCircle,
-  Zap,
-  Flame,
   Shield,
-  Bot
+  Baby,
+  PawPrint,
+  MessageCircle,
 } from 'lucide-react';
+import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
 
 interface CompanyGoalAndOfferProps {
   onGoToQuoteMesh?: () => void;
-  onAuthenticateWithGmail?: () => void;
-  onGoToAdmin?: () => void;
-  onGoToTechnicianOrders?: () => void;
   onOpenAssistant?: () => void;
-  currentUser?: UserAccount | null;
 }
 
 type SimulationArea = 'balcon' | 'ventana' | 'terraza';
 type ProfileColor = 'blanco' | 'titanio' | 'negro';
 
+const AREA_PHOTOS: Record<SimulationArea, string> = {
+  balcon:
+    'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1600&q=80',
+  ventana:
+    'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1600&q=80',
+  terraza:
+    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80',
+};
+
 export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
   onGoToQuoteMesh,
-  onAuthenticateWithGmail,
-  onGoToAdmin,
-  onGoToTechnicianOrders,
   onOpenAssistant,
-  currentUser,
 }) => {
-  const isAdmin =
-    currentUser?.role === 'admin' ||
-    currentUser?.email?.toLowerCase().includes('admin') ||
-    currentUser?.email === 'rcv.informacion@gmail.com' ||
-    currentUser?.email === 'ruth.cerna@gmail.com';
-
-  const isGmailConnected =
-    !!(currentUser?.email && currentUser.email.toLowerCase().endsWith('@gmail.com'));
-
-  // Interactive Graphic Simulation States
   const [activeArea, setActiveArea] = useState<SimulationArea>('balcon');
   const [hasMesh, setHasMesh] = useState<boolean>(true);
   const [profileColor, setProfileColor] = useState<ProfileColor>('blanco');
 
-  const areaDetails: Record<
-    SimulationArea,
-    { title: string; subtitle: string }
-  > = {
+  const areaDetails: Record<SimulationArea, { title: string; subtitle: string }> = {
     balcon: {
-      title: 'Balcón en Altura',
+      title: 'Balcón en altura',
       subtitle: 'Protección para niños y mascotas sin tapar la vista',
     },
     ventana: {
-      title: 'Ventana de Dormitorio',
-      subtitle: 'Ventilación fresca continua con total seguridad',
+      title: 'Ventana de dormitorio',
+      subtitle: 'Ventilación continua con seguridad',
     },
     terraza: {
-      title: 'Terraza Panorámica',
-      subtitle: 'Seguridad perimetral para departamentos y casas',
+      title: 'Terraza',
+      subtitle: 'Perímetro seguro para departamentos y casas',
     },
   };
 
   return (
     <section id="section-company-presentation" className="space-y-8 pb-12">
-      {/* 1. COMPACT HIGH-IMPACT HERO BANNER (CONCISE, GRAPHIC-FIRST) */}
       <div
         id="hero-offer-banner"
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 text-white p-6 sm:p-8 lg:p-10 shadow-xl border border-sky-800/40"
@@ -85,140 +67,104 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
         <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left Column: Direct Headline, Metrics & CTA */}
           <div className="lg:col-span-7 space-y-4">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-bold tracking-wide">
               <ShieldAlert className="w-3.5 h-3.5 text-sky-400" />
-              <span>Instalación Certificada &bull; 24 a 48 Horas</span>
+              <span>Evaluación y cotización sin costo</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-              Mallas de Seguridad:{' '}
-              <span className="text-sky-400">Protección invisible para tu familia</span>
+              Mallas de seguridad:{' '}
+              <span className="text-sky-400">protección para tu familia</span>
             </h1>
 
             <p className="text-slate-300 text-sm sm:text-base max-w-xl leading-relaxed">
-              Evita caídas en altura de niños y mascotas. Resisten <strong className="text-white font-bold">180 kg/m²</strong> con filtro solar UV y perfiles de aluminio sin alterar la fachada ni tu vista.
+              Protegemos ventanas, balcones y terrazas. La malla no tapa la vista y se cotiza
+              según una visita o las medidas que nos envíes.
             </p>
 
-            {/* 4 Graphic Key Metrics (Bold & Scannable) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-sky-300">180 kg/m²</div>
-                <div className="text-[11px] text-slate-300 font-medium">Carga probada</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10">
+                <Baby className="w-5 h-5 text-sky-300 mb-1.5" />
+                <div className="text-sm font-black text-white">Niños y mascotas</div>
+                <div className="text-[11px] text-slate-300 font-medium">Barrera de seguridad en altura</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-amber-300">100% UV</div>
-                <div className="text-[11px] text-slate-300 font-medium">Filtro solar</div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10">
+                <Eye className="w-5 h-5 text-amber-300 mb-1.5" />
+                <div className="text-sm font-black text-white">No tapa la vista</div>
+                <div className="text-[11px] text-slate-300 font-medium">Luz y paisaje siguen visibles</div>
               </div>
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-emerald-300">3 Años</div>
-                <div className="text-[11px] text-slate-300 font-medium">Garantía oficial</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10 text-center">
-                <div className="text-2xl font-black text-blue-300">98% Luz</div>
-                <div className="text-[11px] text-slate-300 font-medium">Paso natural</div>
+              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-3 border border-white/10">
+                <CheckCircle2 className="w-5 h-5 text-emerald-300 mb-1.5" />
+                <div className="text-sm font-black text-white">Evaluación sin costo</div>
+                <div className="text-[11px] text-slate-300 font-medium">Te llamamos o escribimos</div>
               </div>
             </div>
 
-            {/* Primary Action Button */}
             <div className="pt-2 flex flex-wrap items-center gap-3">
-              {isAdmin ? (
-                <button
-                  type="button"
-                  onClick={onGoToAdmin}
-                  className="px-6 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-all shadow-lg flex items-center gap-2 cursor-pointer"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Ir a Recepción de Cotizaciones (Admin)</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              ) : isGmailConnected ? (
+              {onGoToQuoteMesh && (
                 <button
                   type="button"
                   onClick={onGoToQuoteMesh}
-                  className="px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-bold transition-all shadow-lg flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-lg flex items-center gap-2 cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
-                  <span>Ingresar a Cotizar Malla</span>
+                  <span>Pedir cotización</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onAuthenticateWithGmail}
-                  className="px-6 py-3 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold transition-all shadow-lg flex items-center gap-2.5 cursor-pointer"
-                >
-                  <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-black">
-                    G
-                  </span>
-                  <span>Conectar con Gmail para Cotizar</span>
-                  <ArrowRight className="w-4 h-4 text-slate-500" />
-                </button>
               )}
-
-              {onOpenAssistant && (
-                <button
-                  type="button"
-                  onClick={onOpenAssistant}
-                  className="px-5 py-3 rounded-2xl bg-indigo-600/90 hover:bg-indigo-600 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer border border-indigo-400/40"
-                  title="Consultar cotizaciones con el Asistente por RUT"
-                >
-                  <Bot className="w-4 h-4 text-sky-300" />
-                  <span>Asistente por RUT</span>
-                </button>
-              )}
-
-              <span className="text-xs text-sky-200/90 flex items-center gap-1.5 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Respuesta formal y detallada a tu correo</span>
-              </span>
+              <a
+                href={WHATSAPP_QUOTE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-3 rounded-2xl bg-emerald-600/90 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 border border-emerald-400/40"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp {CONTACT_PHONE_DISPLAY}</span>
+              </a>
             </div>
           </div>
 
-          {/* Right Column: Visual Trust Badges (Compact Graphic Pill Grid) */}
           <div className="lg:col-span-5 bg-slate-800/80 backdrop-blur-md rounded-2xl p-5 border border-sky-500/30 space-y-3.5 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-2.5">
               <span className="flex items-center gap-2 text-xs font-bold text-white">
                 <Award className="w-4 h-4 text-amber-400" />
-                Garantías y Certificación 2026
+                Qué incluye
               </span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">
-                100% Homologado
+                Cotización sin costo
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-200">
               <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="font-medium">Nudos termosellados</span>
+                <Baby className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-medium">Protección para niños</span>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60 flex items-center gap-2">
+                <PawPrint className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-medium">Seguridad para mascotas</span>
+              </div>
+              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60 flex items-center gap-2">
+                <Eye className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-medium">Vista despejada</span>
               </div>
               <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="font-medium">Aluminio inoxidable</span>
-              </div>
-              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="font-medium">Anclajes de hormigón</span>
-              </div>
-              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/60 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="font-medium">Apto condominios</span>
+                <span className="font-medium">Apto para condominios</span>
               </div>
             </div>
 
             <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-700/80 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-slate-300">
                 <Clock className="w-4 h-4 text-sky-400" />
-                <span>Instalación limpia en 3 a 4 horas</span>
+                <span>Visita según evaluación</span>
               </div>
-              <span className="text-emerald-400 font-bold">Sin polvo residual</span>
+              <span className="text-emerald-400 font-bold">Sin compromiso</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. INTERACTIVE GRAPHIC SIMULATOR (HIGH VISUAL RETENTION, SCANNABLE) */}
       <div
         id="section-interactive-simulation"
         className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-5"
@@ -227,74 +173,39 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
           <div>
             <div className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-700 uppercase tracking-wide">
               <Eye className="w-3.5 h-3.5 text-sky-600" />
-              <span>Simulador Visual Interactivo</span>
+              <span>Simulador visual</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
-              Comprueba la transparencia y protección en tu hogar
+              Así se ve tu hogar con y sin malla
             </h2>
           </div>
 
-          {/* Area Selector Tabs */}
           <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveArea('balcon')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeArea === 'balcon'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              🏢 Balcón
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveArea('ventana')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeArea === 'ventana'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              🪟 Ventana
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveArea('terraza')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeArea === 'terraza'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              🐱 Terraza
-            </button>
+            {(['balcon', 'ventana', 'terraza'] as SimulationArea[]).map((area) => (
+              <button
+                key={area}
+                type="button"
+                onClick={() => setActiveArea(area)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeArea === area
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {area === 'balcon' ? 'Balcón' : area === 'ventana' ? 'Ventana' : 'Terraza'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Visual Graphic Display Stage */}
         <div className="relative rounded-2xl overflow-hidden border border-slate-300 bg-slate-900 shadow-inner h-72 sm:h-88 flex flex-col justify-between p-4 sm:p-5">
-          {/* Panoramic Skyline Backdrop */}
-          <div
-            className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-200 to-amber-100 opacity-90 transition-all duration-500"
-            style={{
-              backgroundImage:
-                'linear-gradient(to bottom, #38bdf8 0%, #bae6fd 60%, #fed7aa 100%)',
-            }}
-          >
-            {/* Distant City Silhouette */}
-            <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-slate-700/40 to-transparent flex items-end justify-around px-8 opacity-70">
-              <div className="w-16 h-18 bg-slate-600/50 rounded-t-sm" />
-              <div className="w-24 h-22 bg-slate-700/60 rounded-t-sm" />
-              <div className="w-20 h-14 bg-slate-600/40 rounded-t-sm" />
-              <div className="w-28 h-20 bg-slate-700/50 rounded-t-sm" />
-              <div className="w-16 h-16 bg-slate-600/40 rounded-t-sm" />
-            </div>
-            {/* Sunlight glint */}
-            <div className="absolute top-4 right-8 w-20 h-20 rounded-full bg-white/40 blur-xl pointer-events-none" />
-          </div>
+          <img
+            src={AREA_PHOTOS[activeArea]}
+            alt={areaDetails[activeArea].title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-900/10" />
 
-          {/* Window / Balcony Structural Frame */}
           <div
             className="absolute inset-3 sm:inset-5 rounded-xl border-8 sm:border-10 transition-colors duration-300 shadow-2xl pointer-events-none z-10"
             style={{
@@ -306,7 +217,6 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   : '#64748b',
             }}
           >
-            {/* Center Mullion Divider */}
             <div
               className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-2 sm:w-2.5 shadow-md"
               style={{
@@ -320,23 +230,19 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             />
           </div>
 
-          {/* Transparent Safety Mesh Overlay (Toggled) */}
           {hasMesh && (
             <div
               className="absolute inset-5 sm:inset-6 transition-opacity duration-300 z-15 pointer-events-none"
               style={{
                 backgroundImage: `
-                  repeating-linear-gradient(45deg, rgba(255,255,255,0.45) 0, rgba(255,255,255,0.45) 1px, transparent 0, transparent 20px),
-                  repeating-linear-gradient(-45deg, rgba(255,255,255,0.45) 0, rgba(255,255,255,0.45) 1px, transparent 0, transparent 20px)
+                  repeating-linear-gradient(45deg, rgba(255,255,255,0.35) 0, rgba(255,255,255,0.35) 1px, transparent 0, transparent 18px),
+                  repeating-linear-gradient(-45deg, rgba(255,255,255,0.35) 0, rgba(255,255,255,0.35) 1px, transparent 0, transparent 18px)
                 `,
-                backgroundSize: '20px 20px',
+                backgroundSize: '18px 18px',
               }}
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.3)_1px,transparent_1px)] [background-size:20px_20px]" />
-            </div>
+            />
           )}
 
-          {/* Top Status Bar Inside Stage */}
           <div className="relative z-20 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="font-bold text-xs bg-slate-900/80 backdrop-blur-md text-white px-3 py-1 rounded-lg border border-white/20">
@@ -350,62 +256,50 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             {hasMesh ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/90 text-white font-black text-xs shadow-md">
                 <Check className="w-3.5 h-3.5 stroke-[3]" />
-                <span>100% Protegido (180 kg/m²)</span>
+                <span>Con malla</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-600/95 text-white font-black text-xs shadow-md animate-pulse">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-600/95 text-white font-black text-xs shadow-md">
                 <ShieldAlert className="w-3.5 h-3.5" />
-                <span>Peligro: Sin Protección</span>
+                <span>Sin protección</span>
               </span>
             )}
           </div>
 
-          {/* Bottom Interactive Control Island */}
           <div className="relative z-20 bg-slate-900/90 backdrop-blur-md rounded-xl p-3 border border-white/20 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl">
-            {/* Toggle Switch */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-300 font-medium hidden sm:inline">
-                Estado:
-              </span>
               <div className="flex items-center p-0.5 bg-slate-800 rounded-lg border border-slate-700">
                 <button
                   type="button"
                   onClick={() => setHasMesh(true)}
                   className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    hasMesh
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                    hasMesh ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Con Malla Invisible</span>
+                  <span>Con malla</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setHasMesh(false)}
                   className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    !hasMesh
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'text-slate-400 hover:text-white'
+                    !hasMesh ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>Sin Malla</span>
+                  <span>Sin malla</span>
                 </button>
               </div>
             </div>
 
-            {/* Profile color selector */}
             <div className="flex items-center gap-2 text-xs text-slate-300">
-              <span className="font-medium">Color Marco:</span>
+              <span className="font-medium">Color marco:</span>
               <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded-lg border border-slate-700">
                 <button
                   type="button"
                   onClick={() => setProfileColor('blanco')}
                   className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                    profileColor === 'blanco'
-                      ? 'bg-white text-slate-900'
-                      : 'text-slate-400 hover:text-white'
+                    profileColor === 'blanco' ? 'bg-white text-slate-900' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Blanco
@@ -414,9 +308,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   type="button"
                   onClick={() => setProfileColor('titanio')}
                   className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                    profileColor === 'titanio'
-                      ? 'bg-slate-600 text-white'
-                      : 'text-slate-400 hover:text-white'
+                    profileColor === 'titanio' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Gris
@@ -425,9 +317,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   type="button"
                   onClick={() => setProfileColor('negro')}
                   className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                    profileColor === 'negro'
-                      ? 'bg-slate-950 text-white'
-                      : 'text-slate-400 hover:text-white'
+                    profileColor === 'negro' ? 'bg-slate-950 text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Negro
@@ -437,15 +327,14 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
           </div>
         </div>
 
-        {/* 3 Graphical Spec Tokens (Ultra-Concise) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-900">Nylon 0.80 mm Monofilamento</h4>
-              <p className="text-[11px] text-slate-500">Nudos termosellados de alta resistencia.</p>
+              <h4 className="text-xs font-bold text-slate-900">Protección en altura</h4>
+              <p className="text-[11px] text-slate-500">Pensada para niños y mascotas en balcones y ventanas.</p>
             </div>
           </div>
 
@@ -454,8 +343,8 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-900">Aluminio Anodizado</h4>
-              <p className="text-[11px] text-slate-500">Perfiles inoxidables resistentes a lluvia y sol.</p>
+              <h4 className="text-xs font-bold text-slate-900">Vista y luz</h4>
+              <p className="text-[11px] text-slate-500">La malla no tapa el paisaje ni oscurece la habitación.</p>
             </div>
           </div>
 
@@ -464,16 +353,14 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
               <Hammer className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="text-xs font-bold text-slate-900">Fijación Estructural</h4>
-              <p className="text-[11px] text-slate-500">Anclaje en hormigón con tarugos expansivos.</p>
+              <h4 className="text-xs font-bold text-slate-900">Instalación en terreno</h4>
+              <p className="text-[11px] text-slate-500">Fijación en obra, con visita según evaluación.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. VISUAL GRAPHIC COMPARISON: MALLA INVISIBLE VS REJAS TRADICIONALES (HIGH RETENTION) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card A: Mallas de Seguridad (La Opción Moderna) */}
         <div className="bg-gradient-to-br from-sky-900 to-slate-900 text-white rounded-3xl p-6 border border-sky-700/50 shadow-md space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -481,36 +368,32 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                 <Check className="w-5 h-5 stroke-[3]" />
               </div>
               <div>
-                <h3 className="text-base font-black text-white">Malla Invisible de Seguridad</h3>
-                <span className="text-[11px] text-sky-300 font-semibold">Tecnología recomendada</span>
+                <h3 className="text-base font-black text-white">Malla de seguridad</h3>
+                <span className="text-[11px] text-sky-300 font-semibold">Opción recomendada</span>
               </div>
             </div>
-            <span className="text-xs font-bold bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-              Aprobada 100%
-            </span>
           </div>
 
           <div className="space-y-2 text-xs text-slate-200">
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
-              <span><strong>98% Luz y Vista despejada:</strong> Sin sensación de encierro.</span>
+              <span>Deja pasar la luz y no tapa la vista.</span>
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
-              <span><strong>Permitida en Condominios:</strong> No altera la fachada arquitectónica.</span>
+              <span>Suele estar permitida en condominios.</span>
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
-              <span><strong>Vía de Escape Rápida:</strong> Bomberos pueden cortarla en emergencias.</span>
+              <span>En una emergencia se puede cortar para evacuar.</span>
             </div>
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2.5]" />
-              <span><strong>Instalación Express:</strong> Lista en 3 horas sin ruidos molestos.</span>
+              <span>Plazo de instalación según evaluación.</span>
             </div>
           </div>
         </div>
 
-        {/* Card B: Rejas de Fierro (Desventajas) */}
         <div className="bg-slate-100 rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -518,225 +401,127 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                 <X className="w-5 h-5 stroke-[3]" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">Rejas de Fierro Tradicionales</h3>
-                <span className="text-[11px] text-slate-500 font-medium">Método obsoleto</span>
+                <h3 className="text-base font-black text-slate-900">Rejas de fierro</h3>
+                <span className="text-[11px] text-slate-500 font-medium">Menos recomendable</span>
               </div>
             </div>
-            <span className="text-xs font-bold bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full border border-rose-200">
-              Desaconsejado
-            </span>
           </div>
 
           <div className="space-y-2 text-xs text-slate-600">
             <div className="flex items-center gap-2">
               <X className="w-4 h-4 text-rose-500 shrink-0 stroke-[2.5]" />
-              <span><strong>Obstrucción visual severa:</strong> Bloquea la luz y arruina la vista.</span>
+              <span>Tapan la luz y el paisaje.</span>
             </div>
             <div className="flex items-center gap-2">
               <X className="w-4 h-4 text-rose-500 shrink-0 stroke-[2.5]" />
-              <span><strong>Prohibido por Copropiedad:</strong> La mayoría de edificios no las permiten.</span>
+              <span>Muchos edificios no las permiten.</span>
             </div>
             <div className="flex items-center gap-2">
               <X className="w-4 h-4 text-rose-500 shrink-0 stroke-[2.5]" />
-              <span><strong>Trampa en Incendios:</strong> Impide la evacuación al exterior.</span>
+              <span>Dificultan la evacuación en un incendio.</span>
             </div>
             <div className="flex items-center gap-2">
               <X className="w-4 h-4 text-rose-500 shrink-0 stroke-[2.5]" />
-              <span><strong>Obras Pesadas:</strong> Soldadura, óxido con el tiempo y alto costo.</span>
+              <span>Obra más pesada, óxido y soldadura.</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* CLIENT ASSISTANT SHOWCASE BANNER */}
-      <div
-        id="banner-client-assistant-home"
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-950 via-slate-900 to-sky-950 text-white p-6 sm:p-7 border border-indigo-500/40 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6"
-      >
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/30 text-sky-300 border border-indigo-400/40 flex items-center justify-center shrink-0 shadow-inner">
-            <Bot className="w-6 h-6 text-sky-300" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider bg-amber-400/15 px-2.5 py-0.5 rounded-full border border-amber-400/30">
-                Nuevo Servicio Clientes
-              </span>
-              <h3 className="text-base sm:text-lg font-black text-white">
-                Asistente Virtual de Cotizaciones por RUT
-              </h3>
-            </div>
-            <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-              ¿Ya solicitaste una cotización? Consulta en tiempo real el estado, presupuesto, medidas y fecha de instalación ingresando tu RUT chileno. Asistente inteligente enfocado exclusivamente en tus cotizaciones.
-            </p>
-          </div>
-        </div>
-
-        {onOpenAssistant && (
-          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
-            <button
-              type="button"
-              onClick={onOpenAssistant}
-              className="w-full md:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-lg hover:shadow-xl cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Bot className="w-4 h-4" />
-              <span>Consultar Cotizaciones con mi RUT</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 4. THREE-STEP PROCESS (QUICK & SCANNABLE) */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h2 className="text-lg sm:text-xl font-black tracking-tight text-white">
-              ¿Cómo solicitar tu cotización formal?
+              Cómo pedir tu cotización
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Proceso rápido en 3 simples pasos con respuesta oficial a tu correo.
+              Sin crear cuenta. Te respondemos por WhatsApp o teléfono.
             </p>
           </div>
-          <span className="text-xs text-sky-400 font-bold bg-sky-950 px-3 py-1 rounded-xl border border-sky-800/60 w-fit">
-            Tiempo estimado: 1 minuto
-          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="bg-slate-800/70 border border-slate-700/70 rounded-2xl p-4 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center font-black text-xs shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-black text-xs shrink-0">
               1
             </div>
             <div className="space-y-0.5">
-              <h3 className="text-xs font-bold text-white">Conecta tu Gmail</h3>
+              <h3 className="text-xs font-bold text-white">Medidas o fotos</h3>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Verificación en 1 clic para asegurar que recibas tu cotización oficial en PDF.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-slate-800/70 border border-slate-700/70 rounded-2xl p-4 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-black text-xs shrink-0">
-              2
-            </div>
-            <div className="space-y-0.5">
-              <h3 className="text-xs font-bold text-white">Ingresa Medidas</h3>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Indica ancho y alto aproximado de tus ventanas o balcón y fecha tentativa.
+                Envíanos el tamaño aproximado o una foto del balcón, ventana o terraza.
               </p>
             </div>
           </div>
 
           <div className="bg-slate-800/70 border border-slate-700/70 rounded-2xl p-4 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-xs shrink-0">
+              2
+            </div>
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-bold text-white">Te llamamos o escribimos</h3>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Coordinamos por WhatsApp o teléfono. El correo es opcional.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/70 border border-slate-700/70 rounded-2xl p-4 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-black text-xs shrink-0">
               3
             </div>
             <div className="space-y-0.5">
-              <h3 className="text-xs font-bold text-white">Recibe tu Presupuesto</h3>
+              <h3 className="text-xs font-bold text-white">Recibes el presupuesto</h3>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                El equipo técnico te responde con el valor exacto y coordina la visita de instalación.
+                Te enviamos el valor y, si corresponde, agendamos la visita de instalación.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Interactive Conversion Card */}
         <div className="pt-2">
-          {isAdmin ? (
-            <div className="bg-slate-800/90 border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-xs sm:text-sm">
-                    Modo Administrador Activo ({currentUser?.email})
-                  </h4>
-                  <p className="text-[11px] text-slate-300">
-                    Acceso exclusivo para recepcionar cotizaciones y pedidos técnicos.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {onGoToAdmin && (
-                  <button
-                    type="button"
-                    onClick={onGoToAdmin}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>1. Recepción (Admin)</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                {onGoToTechnicianOrders && (
-                  <button
-                    type="button"
-                    onClick={onGoToTechnicianOrders}
-                    className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>2. Pedidos Técnicos</span>
-                  </button>
-                )}
-              </div>
+          <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <h4 className="font-bold text-white text-xs sm:text-sm">Listo para cotizar</h4>
+              <p className="text-[11px] text-slate-300">
+                Nombre, teléfono, comuna y una foto. Sin Gmail obligatorio.
+              </p>
             </div>
-          ) : isGmailConnected ? (
-            <div className="bg-slate-800/90 border border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-xs sm:text-sm">
-                    Autenticado con Gmail ({currentUser?.email})
-                  </h4>
-                  <p className="text-[11px] text-slate-300">
-                    Tu cuenta está lista para ingresar medidas y cotizar.
-                  </p>
-                </div>
-              </div>
+            <div className="flex items-center gap-2 shrink-0">
               {onGoToQuoteMesh && (
                 <button
                   type="button"
                   onClick={onGoToQuoteMesh}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5 shrink-0"
+                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
-                  <span>Ir a Cotizar Malla</span>
+                  <span>Pedir cotización</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}
+              <a
+                href={WHATSAPP_QUOTE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp</span>
+              </a>
             </div>
-          ) : (
-            <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-xs sm:text-sm">
-                    Autenticación requerida para cotizar
-                  </h4>
-                  <p className="text-[11px] text-slate-300">
-                    Conéctate con tu cuenta de Gmail para ingresar las medidas de tus ventanas.
-                  </p>
-                </div>
-              </div>
-              {onAuthenticateWithGmail && (
-                <button
-                  type="button"
-                  onClick={onAuthenticateWithGmail}
-                  className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-900 text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-2 shrink-0"
-                >
-                  <span className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] font-black">
-                    G
-                  </span>
-                  <span>Autenticarse con Gmail</span>
-                </button>
-              )}
-            </div>
-          )}
+          </div>
         </div>
+
+        {onOpenAssistant && (
+          <p className="text-[11px] text-slate-500 text-center">
+            ¿Ya cotizaste?{' '}
+            <button
+              type="button"
+              onClick={onOpenAssistant}
+              className="text-sky-400 hover:text-sky-300 font-semibold underline cursor-pointer"
+            >
+              Consulta el estado con tu RUT
+            </button>
+          </p>
+        )}
       </div>
     </section>
   );

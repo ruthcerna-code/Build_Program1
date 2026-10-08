@@ -14,8 +14,6 @@ import {
   X,
   ShieldCheck,
   ArrowUpRight,
-  UploadCloud,
-  DownloadCloud,
   Flame,
   Cloud,
   Layers,
@@ -27,20 +25,13 @@ import {
   getSupabaseConfig,
   saveSupabaseCustomConfig,
   testSupabaseConnection,
-  syncAllLocalQuotesToSupabase,
 } from '../services/supabaseClient';
 import {
   isFirebaseConfigured,
   getFirebaseProjectInfo,
   testFirestoreConnection,
-  syncAllLocalQuotesToFirestore,
-  fetchQuotesFromFirestore,
 } from '../services/firebaseClient';
-import {
-  syncWithSupabaseDatabase,
-  syncWithFirestoreDatabase,
-  getStoredQuotes,
-} from '../services/quoteStorage';
+import { getStoredQuotes } from '../services/quoteStorage';
 import { UserAccount } from '../types';
 
 interface SupabaseModalProps {
@@ -56,7 +47,7 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
   currentUser,
   onQuotesSynced,
 }) => {
-  const [activeTab, setActiveTab] = useState<'firebase' | 'datamodel' | 'supabase'>('firebase');
+  const [activeTab, setActiveTab] = useState<'firebase' | 'datamodel' | 'supabase'>('supabase');
   const [supabaseCfg, setSupabaseCfg] = useState(getSupabaseConfig());
   const [urlInput, setUrlInput] = useState(supabaseCfg.url || '');
   const [keyInput, setKeyInput] = useState(supabaseCfg.anonKey || '');
@@ -69,7 +60,6 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
     count?: number;
   } | null>(null);
 
-  const [isSyncing, setIsSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
 
@@ -103,45 +93,6 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
       });
     } finally {
       setIsTesting(false);
-    }
-  };
-
-  const handlePushAllToFirebase = async () => {
-    setIsSyncing(true);
-    setSyncFeedback(null);
-    try {
-      const allQuotes = getStoredQuotes();
-      const res = await syncAllLocalQuotesToFirestore(allQuotes);
-      if (res.success) {
-        setSyncFeedback(`✅ ¡Éxito! Se subieron ${res.synced} cotizaciones/pedidos a Google Firebase Firestore.`);
-        if (onQuotesSynced) onQuotesSynced();
-      } else {
-        setSyncFeedback(`❌ Error al subir datos: ${res.error}`);
-      }
-    } catch (err: any) {
-      setSyncFeedback(`❌ Error: ${err?.message || 'Error de red'}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handlePullFromFirebase = async () => {
-    setIsSyncing(true);
-    setSyncFeedback(null);
-    try {
-      const res = await syncWithFirestoreDatabase(
-        currentUser?.role === 'cliente' ? currentUser.email : undefined
-      );
-      if (res.success) {
-        setSyncFeedback(`✅ ¡Sincronizado! Se descargaron ${res.count} registros desde Google Firebase.`);
-        if (onQuotesSynced) onQuotesSynced();
-      } else {
-        setSyncFeedback(`❌ ${res.message}`);
-      }
-    } catch (err: any) {
-      setSyncFeedback(`❌ Error: ${err?.message || 'Error de red'}`);
-    } finally {
-      setIsSyncing(false);
     }
   };
 
@@ -182,51 +133,13 @@ export const SupabaseModal: React.FC<SupabaseModalProps> = ({
     }
   };
 
-  const handlePushAllToSupabase = async () => {
-    setIsSyncing(true);
-    setSyncFeedback(null);
-    try {
-      const allQuotes = getStoredQuotes();
-      const res = await syncAllLocalQuotesToSupabase(allQuotes);
-      if (res.success) {
-        setSyncFeedback(`✅ ¡Éxito! Se subieron ${res.synced} cotizaciones/pedidos a Supabase.`);
-        if (onQuotesSynced) onQuotesSynced();
-      } else {
-        setSyncFeedback(`❌ Error al subir datos: ${res.error}`);
-      }
-    } catch (err: any) {
-      setSyncFeedback(`❌ Error: ${err?.message || 'Fallo de red al sincronizar'}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handlePullFromSupabase = async () => {
-    setIsSyncing(true);
-    setSyncFeedback(null);
-    try {
-      const res = await syncWithSupabaseDatabase(
-        currentUser?.role === 'cliente' ? currentUser.email : undefined
-      );
-      if (res.success) {
-        setSyncFeedback(`✅ ¡Sincronización completada! Se descargaron ${res.count} registros.`);
-        if (onQuotesSynced) onQuotesSynced();
-      } else {
-        setSyncFeedback(`❌ ${res.message}`);
-      }
-    } catch (err: any) {
-      setSyncFeedback(`❌ Error: ${err?.message || 'Fallo de red'}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const sqlCode = `-- TABLA PRINCIPAL DE COTIZACIONES Y ÓRDENES DE TRABAJO
+  const sqlCode = `-- TABLAS PRINCIPALES (quotes, app_users, access_logs)
 create table if not exists public.quotes (
   id text primary key,
   folio text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  created_at timestamptz not null default timezone('utc'::text, now()),
   client_name text not null,
+  client_rut text,
   client_email text not null,
   client_phone text,
   client_address text,
@@ -239,23 +152,66 @@ create table if not exists public.quotes (
   tentative_time2 text,
   total_area_m2 numeric default 0,
   status text not null default 'pendiente',
-  accepted_at timestamp with time zone,
+  accepted_at timestamptz,
+  paid_amount numeric,
+  payment_status text,
+  payment_method text,
+  payment_notes text,
   windows jsonb default '[]'::jsonb,
   admin_quote jsonb,
   installer_assignment jsonb,
-  technician_execution jsonb
+  technician_execution jsonb,
+  email_dispatch jsonb
 );
 
--- ÍNDICE PARA BÚSQUEDA RÁPIDA POR CORREO (ruth.cerna@gmail.com)
-create index if not exists idx_quotes_client_email on public.quotes(client_email);
+create table if not exists public.app_users (
+  id text primary key,
+  email text not null unique,
+  password_hash text not null,
+  full_name text not null,
+  role text not null default 'cliente',
+  rut text,
+  created_at timestamptz not null default timezone('utc'::text, now()),
+  provisional_password text,
+  provisional_password_created_at timestamptz,
+  must_change_password boolean default false
+);
 
--- HABILITAR ROW LEVEL SECURITY (RLS)
+create table if not exists public.access_logs (
+  id text primary key,
+  user_id text,
+  user_email text not null,
+  user_name text,
+  role text,
+  connected_at timestamptz not null default timezone('utc'::text, now()),
+  connectivity_timestamp bigint,
+  action text not null,
+  action_description text,
+  quotes_count integer default 0,
+  quote_folios jsonb default '[]'::jsonb,
+  device_info text,
+  ip_address text
+);
+
 alter table public.quotes enable row level security;
+alter table public.app_users enable row level security;
+alter table public.access_logs enable row level security;
 
--- POLÍTICA PERMISIVA PARA PRUEBAS CON ANON KEY
-drop policy if exists "Permitir acceso publico" on public.quotes;
-create policy "Permitir acceso publico" on public.quotes
-  for all using (true) with check (true);`;
+revoke all on table public.quotes from anon, authenticated;
+revoke all on table public.app_users from anon, authenticated;
+revoke all on table public.access_logs from anon, authenticated;
+grant insert on table public.quotes to anon;
+grant select, insert, update on table public.quotes to authenticated;
+
+create policy "anon_insert_quotes" on public.quotes
+  for insert to anon
+  with check (
+    client_email is not null
+    and position('@' in client_email) > 1
+  );
+create policy "authenticated_select_own_quotes" on public.quotes
+  for select to authenticated
+  using (lower(client_email) = lower(coalesce(auth.email(), '')));`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlCode);
@@ -446,27 +402,9 @@ create policy "Permitir acceso publico" on public.quotes
                   Cualquier cambio (nuevo presupuesto, cambio de precio por el administrador, confirmación de cliente o fotos del técnico) se sincroniza en vivo. También puedes sincronizar manualmente ahora:
                 </p>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handlePushAllToFirebase}
-                    disabled={isSyncing}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <UploadCloud className={`w-4 h-4 ${isSyncing ? 'animate-bounce' : ''}`} />
-                    <span>Subir datos actuales a Google Firebase</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handlePullFromFirebase}
-                    disabled={isSyncing}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <DownloadCloud className={`w-4 h-4 ${isSyncing ? 'animate-bounce' : ''}`} />
-                    <span>Descargar últimas órdenes de Firebase</span>
-                  </button>
-                </div>
+                <p className="text-[11px] text-slate-500 pt-1">
+                  Firebase ya no se usa para guardar ni leer. La base principal es Supabase.
+                </p>
 
                 {syncFeedback && (
                   <div className="p-2.5 rounded-xl bg-white border border-amber-300 text-[11px] font-medium text-slate-800 mt-2">
@@ -736,7 +674,7 @@ create policy "Permitir acceso publico" on public.quotes
                           }`}
                         >
                           {supabaseCfg.source === 'env'
-                            ? 'Variables .env'
+                            ? 'Variables .env.local'
                             : supabaseCfg.source === 'custom'
                             ? 'Claves Personalizadas'
                             : 'Opcional'}
@@ -745,7 +683,7 @@ create policy "Permitir acceso publico" on public.quotes
                       <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
                         {supabaseCfg.isConfigured
                           ? `Conectado al proyecto: ${supabaseCfg.url}`
-                          : 'Si prefieres usar Supabase en lugar de Firebase, puedes pegar tu Project URL y Anon Key.'}
+                          : 'Supabase cloud es la base principal. Completa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en .env.local.'}
                       </p>
                     </div>
                   </div>
