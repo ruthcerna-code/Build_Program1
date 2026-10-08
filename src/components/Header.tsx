@@ -16,6 +16,8 @@ import { UserAccount } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import { isUserAdmin, isUserTechnician } from '../services/authStorage';
 import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
+import { canManageUsers, canViewQuotes, canViewSales } from '../services/permissions';
+import { isPrincipalAdminEmail } from '../constants/admin';
 
 export type AppView =
   | 'client'
@@ -24,7 +26,10 @@ export type AppView =
   | 'received_quotes'
   | 'approved_quotes'
   | 'technician_orders'
-  | 'client_portal';
+  | 'client_portal'
+  | 'contact'
+  | 'sales'
+  | 'team';
 
 interface HeaderProps {
   currentView: AppView;
@@ -53,7 +58,9 @@ export const Header: React.FC<HeaderProps> = ({
   const supabaseConnected = isSupabaseConfigured();
   const isAdmin = isUserAdmin(currentUser || null);
   const isTechnician = isUserTechnician(currentUser || null);
-  const showInternalTools = isAdmin || isTechnician;
+  const showSales = canViewSales(currentUser || null);
+  const showTeam = canManageUsers(currentUser || null);
+  const showInternalTools = isPrincipalAdminEmail(currentUser?.email);
 
   const navBase = isAdmin
     ? 'bg-slate-800/90 border-slate-700/80 text-slate-200'
@@ -225,6 +232,89 @@ export const Header: React.FC<HeaderProps> = ({
                       </span>
                     )}
                   </button>
+                  {showSales && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('sales')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
+                        currentView === 'sales'
+                          ? 'bg-white text-slate-900'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                      }`}
+                    >
+                      <span>Ventas</span>
+                    </button>
+                  )}
+                  {showTeam && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('team')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
+                        currentView === 'team'
+                          ? 'bg-white text-slate-900'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                      }`}
+                    >
+                      <span>Equipo</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('contact')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
+                      currentView === 'contact'
+                        ? 'bg-white text-slate-900'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                    }`}
+                  >
+                    <span>Contáctanos</span>
+                  </button>
+                </>
+              ) : currentUser?.role === 'interno' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('client')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
+                      currentView === 'client' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
+                    }`}
+                  >
+                    <Home className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Inicio</span>
+                  </button>
+                  {canViewQuotes(currentUser) && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('admin')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
+                        currentView === 'admin' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
+                      }`}
+                    >
+                      <Inbox className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Cotizaciones</span>
+                    </button>
+                  )}
+                  {showSales && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('sales')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
+                        currentView === 'sales' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
+                      }`}
+                    >
+                      <span>Ventas</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('contact')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
+                      currentView === 'contact' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
+                    }`}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Contáctanos</span>
+                  </button>
                 </>
               ) : isTechnician ? (
                 <>
@@ -288,6 +378,43 @@ export const Header: React.FC<HeaderProps> = ({
                     <Sparkles className={`w-3.5 h-3.5 ${currentView === 'quote_mesh' ? 'text-amber-300' : 'text-sky-600'}`} />
                     <span>Cotizar</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('contact')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
+                      currentView === 'contact'
+                        ? 'bg-white text-sky-900 shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Contáctanos</span>
+                  </button>
+                  {currentUser?.role === 'cliente' && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('received_quotes')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
+                        currentView === 'received_quotes'
+                          ? 'bg-white text-sky-900 shadow-xs font-bold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      }`}
+                    >
+                      <Inbox className="w-3.5 h-3.5 text-sky-600" />
+                      <span>Mis cotizaciones</span>
+                    </button>
+                  )}
+                  {showSales && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('sales')}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
+                        currentView === 'sales' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
+                      }`}
+                    >
+                      <span>Ventas</span>
+                    </button>
+                  )}
                 </>
               )}
             </nav>

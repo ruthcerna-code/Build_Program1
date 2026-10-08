@@ -131,6 +131,10 @@ export const mapQuoteToDbRow = (quote: QuoteRequest) => {
     installer_assignment: quote.installerAssignment || null,
     technician_execution: quote.technicianExecution || null,
     email_dispatch: quote.emailDispatch || null,
+    deleted_at: quote.deletedAt || null,
+    owner_email: (quote.ownerEmail || quote.clientEmail || '').toLowerCase(),
+    change_history: quote.changeHistory || [],
+    payments: quote.payments || [],
   };
 };
 
@@ -166,6 +170,10 @@ export const mapDbRowToQuote = (row: any): QuoteRequest => {
     installerAssignment: row.installer_assignment || undefined,
     technicianExecution: row.technician_execution || undefined,
     emailDispatch: row.email_dispatch || undefined,
+    deletedAt: row.deleted_at || undefined,
+    ownerEmail: row.owner_email || row.client_email,
+    changeHistory: Array.isArray(row.change_history) ? row.change_history : [],
+    payments: Array.isArray(row.payments) ? row.payments : [],
   };
 };
 

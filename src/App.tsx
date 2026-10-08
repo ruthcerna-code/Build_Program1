@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Header, AppView } from './components/Header';
 import { HomeClientView } from './components/HomeClientView';
 import { QuoteMeshView } from './components/QuoteMeshView';
-import { AdminQuotesView } from './components/AdminQuotesView';
-import { ClientReceivedQuotesView } from './components/ClientReceivedQuotesView';
-import { ApprovedQuotesView } from './components/ApprovedQuotesView';
+import { SimpleQuotesView } from './components/SimpleQuotesView';
+import { ContactView } from './components/ContactView';
+import { SalesView } from './components/SalesView';
+import { InternalUsersView } from './components/InternalUsersView';
+import { AdminSyncBar } from './components/AdminSyncBar';
 import { TechnicianOrdersView } from './components/TechnicianOrdersView';
 import { ClientQuotePortalView } from './components/ClientQuotePortalView';
 import { AdminQuoteEditorModal } from './components/AdminQuoteEditorModal';
@@ -18,6 +20,7 @@ import {
   InstallerAssignment,
   TechnicianExecution,
   UserAccount,
+  QuoteStatus,
 } from './types';
 import {
   getStoredQuotes,
@@ -30,8 +33,13 @@ import {
   unassignInstallerFromQuote,
   updateTechnicianExecution,
   syncWithCloudDatabases,
+  updateQuoteStatus,
+  updateQuoteTotalDirectly,
+  registerQuotePayment,
+  saveQuotesToStorage,
 } from './services/quoteStorage';
 import { getCurrentUser, logoutUser, isUserAdmin, isInternalUser, syncUsersWithSupabase } from './services/authStorage';
+import { canSyncData, canViewQuotes, canViewSales, canManageUsers } from './services/permissions';
 import { CONTACT_PHONE_DISPLAY, CONTACT_EMAIL, CONTACT_COVERAGE, WHATSAPP_QUOTE_URL } from './constants/contact';
 import { recordUserAccessLog, syncAccessLogsWithSupabase } from './services/accessLogService';
 import {
@@ -273,6 +281,32 @@ export default function App() {
     setQuotes(updated);
   };
 
+  const handleUpdateStatus = (quoteId: string, status: QuoteStatus) => {
+    setQuotes(updateQuoteStatus(quoteId, status));
+    setAuthToast('Estado actualizado.');
+    setTimeout(() => setAuthToast(null), 3000);
+  };
+
+  const handleUpdateNotes = (quoteId: string, notes: string, total?: number) => {
+    if (typeof total === 'number') {
+      setQuotes(updateQuoteTotalDirectly(quoteId, total, notes));
+    }
+    setAuthToast('Cambios guardados.');
+    setTimeout(() => setAuthToast(null), 3000);
+  };
+
+  const handleRegisterPayment = (quoteId: string, amount: number, method?: string, notes?: string) => {
+    setQuotes(registerQuotePayment(quoteId, amount, method, notes));
+    setAuthToast('Pago registrado.');
+    setTimeout(() => setAuthToast(null), 3000);
+  };
+
+  const handleSoftDelete = (quoteId: string) => {
+    setQuotes(deleteQuoteRequest(quoteId));
+    setAuthToast('Cotización eliminada. Queda en el historial.');
+    setTimeout(() => setAuthToast(null), 3500);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
       {/* Top Header with streamlined navigation views */}
@@ -334,7 +368,7 @@ export default function App() {
         )}
 
         {currentView === 'admin' && (
-          !isUserAdmin(currentUser) ? (
+          !(isUserAdmin(currentUser) || (currentUser?.role === 'interno' && canViewQuotes(currentUser))) ? (
             <div className="max-w-xl mx-auto my-12 bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center space-y-4 animate-fade-in">
               <div className="w-16 h-16 rounded-2xl bg-sky-500/10 text-sky-700 flex items-center justify-center mx-auto">
                 <ShieldCheck className="w-8 h-8" />
@@ -363,24 +397,31 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <AdminQuotesView
-              quotes={quotes}
-              onSaveAdminQuote={handleSaveAdminQuote}
-              onDeleteQuote={handleDeleteQuote}
-              onAssignInstaller={handleAssignInstaller}
-              onUnassignInstaller={handleUnassignInstaller}
-              onAcceptQuote={handleAcceptQuote}
-              onUpdatePayment={handleUpdatePayment}
-              onNavigateToClient={() => {
-                setCurrentView('client');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateToClientQuoteScreen={handleViewClientQuoteScreen}
-              onNavigateToTechnicianOrders={() => {
-                setCurrentView('technician_orders');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
+            <>
+              {canSyncData(currentUser) && (
+                <AdminSyncBar
+                  onApplyQuotes={(remote) => {
+                    const local = getStoredQuotes();
+                    const remoteIds = new Set(remote.map((q: QuoteRequest) => q.id));
+                    const extras = local.filter((q) => !remoteIds.has(q.id));
+                    const merged = [...remote, ...extras];
+                    saveQuotesToStorage(merged);
+                    setQuotes(merged);
+                  }}
+                />
+              )}
+              <SimpleQuotesView
+                quotes={quotes}
+                currentUser={currentUser}
+                title="Recepción de cotizaciones"
+                onUpdateStatus={handleUpdateStatus}
+                onUpdateNotes={handleUpdateNotes}
+                onDeleteQuote={handleSoftDelete}
+                onAcceptQuote={handleAcceptQuote}
+                onRegisterPayment={handleRegisterPayment}
+                toast={authToast}
+              />
+            </>
           )
         )}
 
@@ -426,6 +467,36 @@ export default function App() {
             />
           )
         )}
+
+        {currentView === 'contact' && <ContactView />}
+
+        {currentView === 'received_quotes' && (
+          <SimpleQuotesView
+            quotes={quotes}
+            currentUser={currentUser}
+            title="Mis cotizaciones"
+            onAcceptQuote={handleAcceptQuote}
+            toast={authToast}
+          />
+        )}
+
+        {currentView === 'sales' &&
+          (canViewSales(currentUser) ? (
+            <SalesView
+              quotes={quotes}
+              currentUser={currentUser}
+              onRegisterPayment={handleRegisterPayment}
+            />
+          ) : (
+            <p className="text-center py-16 text-slate-600">No tienes permiso para ver ventas.</p>
+          ))}
+
+        {currentView === 'team' &&
+          (canManageUsers(currentUser) ? (
+            <InternalUsersView />
+          ) : (
+            <p className="text-center py-16 text-slate-600">Solo la administradora gestiona el equipo.</p>
+          ))}
 
         {currentView === 'client_portal' && (
           <ClientQuotePortalView
@@ -647,6 +718,18 @@ export default function App() {
                       className="hover:text-white transition-colors"
                     >
                       Preguntas frecuentes / consulta por RUT
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView('contact');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors"
+                    >
+                      Contáctanos
                     </button>
                   </li>
                 </ul>

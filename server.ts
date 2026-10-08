@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { matchFaqAnswer } from './src/constants/faqAssistant';
+import { mountApiRoutes } from './server/apiRoutes';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,19 +12,11 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json());
+mountApiRoutes(app);
 
 // Initialize Gemini Client
 const geminiApiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
 const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    geminiConfigured: !!ai,
-    timestamp: new Date().toISOString(),
-  });
-});
 
 /**
  * Assistant Chat Endpoint

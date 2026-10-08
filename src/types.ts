@@ -2,7 +2,39 @@ export type MeshType = 'monofilamento' | 'multifilamento';
 
 export type PropertyType = 'departamento' | 'casa' | 'oficina' | 'otro';
 
-export type QuoteStatus = 'pendiente' | 'cotizada' | 'aceptada' | 'rechazada';
+export type QuoteStatus =
+  | 'pendiente'
+  | 'en_revision'
+  | 'cotizada'
+  | 'aceptada'
+  | 'rechazada'
+  | 'cancelada';
+
+export interface InternalPermissions {
+  viewQuotes: boolean;
+  editQuotes: boolean;
+  deleteQuotes: boolean;
+  viewSales: boolean;
+}
+
+export interface QuoteChangeEvent {
+  id: string;
+  at: string;
+  actorEmail: string;
+  actorName: string;
+  action: string;
+  detail: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  quoteId: string;
+  amount: number;
+  method?: string;
+  notes?: string;
+  createdAt: string;
+  createdBy: string;
+}
 
 export interface WindowItem {
   id: string;
@@ -88,6 +120,10 @@ export interface QuoteRequest {
   paymentStatus?: 'pendiente' | 'abono_parcial' | 'pagado_total';
   paymentMethod?: string;
   paymentNotes?: string;
+  payments?: PaymentRecord[];
+  deletedAt?: string;
+  changeHistory?: QuoteChangeEvent[];
+  ownerEmail?: string;
   // Technical execution by installer
   technicianExecution?: TechnicianExecution;
   // Automated email dispatch to rcv.informacion@gmail.com and client copy
@@ -103,7 +139,7 @@ export interface QuoteEmailDispatch {
   formattedContent: string;
 }
 
-export type UserRole = 'admin' | 'cliente' | 'tecnico';
+export type UserRole = 'admin' | 'cliente' | 'tecnico' | 'interno';
 
 export interface UserAccount {
   id: string;
@@ -116,6 +152,9 @@ export interface UserAccount {
   provisionalPassword?: string;
   provisionalPasswordCreatedAt?: string;
   mustChangePassword?: boolean;
+  active?: boolean;
+  permissions?: InternalPermissions;
+  authProvider?: 'password' | 'google';
 }
 
 export interface PasswordRecoveryMail {

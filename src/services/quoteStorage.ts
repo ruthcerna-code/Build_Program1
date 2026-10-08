@@ -1,7 +1,16 @@
-import { QuoteRequest, AdminQuoteDetails, InstallerAssignment, TechnicianExecution } from '../types';
+import {
+  QuoteRequest,
+  AdminQuoteDetails,
+  InstallerAssignment,
+  TechnicianExecution,
+  QuoteStatus,
+  QuoteChangeEvent,
+  PaymentRecord,
+} from '../types';
 import { createQuoteEmailDispatch } from './emailFormatter';
 import { INITIAL_QUOTES } from '../data/initialQuotes';
 import { matchesRut, cleanRut } from '../utils/rutUtils';
+import { getCurrentUser } from './authStorage';
 import {
   isSupabaseConfigured,
   upsertQuoteToSupabase,
@@ -28,6 +37,22 @@ const deleteQuoteFromClouds = (quoteId: string) => {
   if (isSupabaseConfigured()) {
     deleteQuoteFromSupabase(quoteId).catch((err) => console.warn('Supabase delete notice:', err));
   }
+};
+
+const withHistory = (quote: QuoteRequest, action: string, detail: string): QuoteRequest => {
+  const user = getCurrentUser();
+  const event: QuoteChangeEvent = {
+    id: `ev-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    at: new Date().toISOString(),
+    actorEmail: user?.email || 'sistema',
+    actorName: user?.fullName || 'Sistema',
+    action,
+    detail,
+  };
+  return {
+    ...quote,
+    changeHistory: [event, ...(quote.changeHistory || [])].slice(0, 50),
+  };
 };
 
 export const getStoredQuotes = (): QuoteRequest[] => {
@@ -97,10 +122,15 @@ export const saveQuotesToStorage = (quotes: QuoteRequest[]): void => {
 };
 
 export const addQuoteRequest = (newQuote: QuoteRequest): QuoteRequest[] => {
-  const quoteWithDispatch: QuoteRequest = {
-    ...newQuote,
-    emailDispatch: newQuote.emailDispatch || createQuoteEmailDispatch(newQuote),
-  };
+  const quoteWithDispatch: QuoteRequest = withHistory(
+    {
+      ...newQuote,
+      ownerEmail: newQuote.ownerEmail || newQuote.clientEmail,
+      emailDispatch: newQuote.emailDispatch || createQuoteEmailDispatch(newQuote),
+    },
+    'Crear',
+    'Se creó la solicitud de cotización'
+  );
   const current = getStoredQuotes();
   const updated = [quoteWithDispatch, ...current];
   saveQuotesToStorage(updated);
@@ -116,11 +146,15 @@ export const updateQuoteWithAdminDetails = (
   let modifiedQuote: QuoteRequest | null = null;
   const updated = current.map((q) => {
     if (q.id === quoteId) {
-      modifiedQuote = {
-        ...q,
-        status: 'cotizada' as const,
-        adminQuote: adminDetails,
-      };
+      modifiedQuote = withHistory(
+        {
+          ...q,
+          status: 'cotizada',
+          adminQuote: adminDetails,
+        },
+        'Enviar',
+        'Se guardó el presupuesto'
+      );
       return modifiedQuote;
     }
     return q;
@@ -132,19 +166,20 @@ export const updateQuoteWithAdminDetails = (
   return updated;
 };
 
-export const updateQuoteStatus = (
-  quoteId: string,
-  status: 'pendiente' | 'cotizada' | 'aceptada' | 'rechazada'
-): QuoteRequest[] => {
+export const updateQuoteStatus = (quoteId: string, status: QuoteStatus): QuoteRequest[] => {
   const current = getStoredQuotes();
   let modifiedQuote: QuoteRequest | null = null;
   const updated = current.map((q) => {
     if (q.id === quoteId) {
-      modifiedQuote = {
-        ...q,
-        status,
-        acceptedAt: status === 'aceptada' ? q.acceptedAt || new Date().toISOString() : q.acceptedAt,
-      };
+      modifiedQuote = withHistory(
+        {
+          ...q,
+          status,
+          acceptedAt: status === 'aceptada' ? q.acceptedAt || new Date().toISOString() : q.acceptedAt,
+        },
+        'Actualizar estado',
+        `Estado cambiado a ${status}`
+      );
       return modifiedQuote;
     }
     return q;
@@ -330,9 +365,49 @@ export const updateQuoteTotalDirectly = (
 
 export const deleteQuoteRequest = (quoteId: string): QuoteRequest[] => {
   const current = getStoredQuotes();
-  const updated = current.filter((q) => q.id !== quoteId);
+  const updated = current.map((q) =>
+    q.id === quoteId
+      ? withHistory({ ...q, deletedAt: new Date().toISOString() }, 'Eliminar', `Baja lógica de ${q.folio}`)
+      : q
+  );
   saveQuotesToStorage(updated);
-  deleteQuoteFromClouds(quoteId);
+  const removed = updated.find((q) => q.id === quoteId);
+  if (removed) syncQuoteToClouds(removed);
+  return updated;
+};
+
+export const registerQuotePayment = (
+  quoteId: string,
+  amount: number,
+  method?: string,
+  notes?: string
+): QuoteRequest[] => {
+  const current = getStoredQuotes();
+  const updated = current.map((q) => {
+    if (q.id !== quoteId) return q;
+    const payment: PaymentRecord = {
+      id: `pay-${Date.now()}`,
+      quoteId,
+      amount,
+      method,
+      notes,
+      createdAt: new Date().toISOString(),
+      createdBy: getCurrentUser()?.email || 'sistema',
+    };
+    const payments = [...(q.payments || []), payment];
+    const paidAmount = payments.reduce((sum, item) => sum + item.amount, 0);
+    const quoteTotal = q.adminQuote?.total || 0;
+    const paymentStatus =
+      paidAmount <= 0 ? 'pendiente' : quoteTotal > 0 && paidAmount >= quoteTotal ? 'pagado_total' : 'abono_parcial';
+    const next = withHistory(
+      { ...q, payments, paidAmount, paymentStatus, paymentMethod: method, paymentNotes: notes },
+      'Pago',
+      `Se registró un pago de ${amount}`
+    );
+    syncQuoteToClouds(next);
+    return next;
+  });
+  saveQuotesToStorage(updated);
   return updated;
 };
 

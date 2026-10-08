@@ -108,12 +108,7 @@ export function isUserGmailConnected(user: UserAccount | null): boolean {
  */
 export function isUserAdmin(user: UserAccount | null): boolean {
   if (!user || !user.email) return false;
-  return (
-    user.role === 'admin' ||
-    user.email.toLowerCase().includes('admin') ||
-    user.email.toLowerCase() === 'ruth.cerna@gmail.com' ||
-    user.email.toLowerCase() === 'rcv.informacion@gmail.com'
-  );
+  return user.role === 'admin' || user.email.toLowerCase() === 'ruth.cerna@gmail.com';
 }
 
 export function isUserTechnician(user: UserAccount | null): boolean {
@@ -121,7 +116,7 @@ export function isUserTechnician(user: UserAccount | null): boolean {
 }
 
 export function isInternalUser(user: UserAccount | null): boolean {
-  return isUserAdmin(user) || isUserTechnician(user);
+  return isUserAdmin(user) || isUserTechnician(user) || user?.role === 'interno';
 }
 
 /**
@@ -172,8 +167,7 @@ export function loginWithGmailAccount(
   }
 
   // Create new user immediately with role 'cliente' (or 'admin' if ruth)
-  const role: UserRole =
-    cleanEmail === 'ruth.cerna@gmail.com' ? 'admin' : 'cliente';
+    const role: UserRole = cleanEmail === 'ruth.cerna@gmail.com' ? 'admin' : 'cliente';
 
   const defaultName =
     fullName?.trim() ||
@@ -247,13 +241,8 @@ export function loginOrRegisterUser(
   if (existingUserIndex === -1) {
     // Determine default role
     let role: UserRole = 'cliente';
-    if (
-      cleanEmail === 'ruth.cerna@gmail.com' ||
-      cleanEmail.includes('admin')
-    ) {
+    if (cleanEmail === 'ruth.cerna@gmail.com') {
       role = 'admin';
-    } else if (cleanEmail.includes('tecnico') || cleanEmail.includes('instalador')) {
-      role = 'tecnico';
     }
 
     const displayName =
@@ -493,6 +482,7 @@ export function setNewPasswordWithProvisional(
  */
 export function logoutUser(): void {
   setCurrentUser(null);
+  import('./sessionApi').then(({ setSessionToken }) => setSessionToken(null)).catch(() => undefined);
 }
 
 /**

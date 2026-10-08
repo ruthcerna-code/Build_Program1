@@ -22,10 +22,10 @@ import {
 import { UserAccount, PasswordRecoveryMail } from '../types';
 import {
   loginOrRegisterUser,
-  loginWithGmailAccount,
   requestPasswordRecovery,
   setNewPasswordWithProvisional,
 } from '../services/authStorage';
+import { fetchAuthConfig, loginWithGoogleToken } from '../services/sessionApi';
 
 export type AuthMode = 'login' | 'recover' | 'mail_sent' | 'reset_password';
 
@@ -61,6 +61,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
 
   // Sync initial state on open
   useEffect(() => {
@@ -70,8 +72,65 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       if (prefilledEmail) {
         setEmail(prefilledEmail);
       }
+      fetchAuthConfig()
+        .then((cfg) => {
+          setGoogleClientId(cfg.googleClientId);
+          setGoogleReady(!!cfg.googleReady);
+        })
+        .catch(() => {
+          setGoogleReady(false);
+        });
     }
   }, [isOpen, initialMode, prefilledEmail]);
+
+  const handleGoogleSignIn = async () => {
+    setErrorMessage(null);
+    if (!googleClientId) {
+      setErrorMessage(
+        'El ingreso con Google aún no está configurado. Falta GOOGLE_CLIENT_ID (y VITE_GOOGLE_CLIENT_ID) en el servidor.'
+      );
+      return;
+    }
+
+    const w = window as any;
+    const start = () => {
+      w.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response: { credential: string }) => {
+          try {
+            setLoading(true);
+            const data = await loginWithGoogleToken(response.credential);
+            onSuccess(data.user, `Entraste con Google: ${data.user.email}`);
+            onClose();
+          } catch (err: any) {
+            setErrorMessage(err?.message || 'No pudimos validar tu cuenta de Google.');
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+      w.google.accounts.id.prompt();
+    };
+
+    if (w.google?.accounts?.id) {
+      start();
+      return;
+    }
+
+    const existing = document.getElementById('google-gis');
+    if (existing) {
+      existing.addEventListener('load', start, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-gis';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = start;
+    script.onerror = () =>
+      setErrorMessage('No se pudo cargar Google. Revisa tu conexión e intenta de nuevo.');
+    document.head.appendChild(script);
+  };
 
   if (!isOpen) return null;
 
@@ -257,17 +316,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {/* Google / Gmail Quick Connect Button */}
               <button
                 type="button"
-                onClick={() => {
-                  const targetEmail = email.trim() || 'ruth.cerna@gmail.com';
-                  const res = loginWithGmailAccount(targetEmail, fullName);
-                  if (res.success && res.user) {
-                    onSuccess(res.user, `¡Conectado exitosamente con cuenta Gmail: ${res.user.email}!`);
-                    onClose();
-                  } else {
-                    setErrorMessage(res.error || 'Error al conectar con Gmail.');
-                  }
-                }}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs sm:text-sm font-bold shadow-2xs flex items-center justify-center gap-2.5 transition-colors cursor-pointer"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs sm:text-sm font-bold shadow-2xs flex items-center justify-center gap-2.5 transition-colors cursor-pointer disabled:opacity-60"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -287,8 +338,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
-                <span>Conectar con Google / Gmail</span>
+                <span>Entrar con Google</span>
               </button>
+              {!googleReady && (
+                <p className="text-[11px] text-slate-500 text-center">
+                  Si el botón no abre Google, falta configurar GOOGLE_CLIENT_ID en el servidor.
+                </p>
+              )}
 
               <div className="relative flex py-1 items-center">
                 <div className="grow border-t border-slate-200"></div>

@@ -199,6 +199,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
       clientName: clientName.trim(),
       clientRut: clientRut.trim() || undefined,
       clientEmail: resolvedEmail,
+      ownerEmail: currentUser?.email || resolvedEmail,
       clientPhone: clientPhone.trim(),
       clientAddress: clientAddress.trim() || 'Dirección por confirmar',
       clientCity: clientCity.trim(),
@@ -319,7 +320,7 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                 htmlFor="input-client-email"
                 className="block text-xs font-semibold text-slate-700 mb-1"
               >
-                Correo electrónico <span className="text-[10px] text-slate-400 font-normal ml-1">(opcional)</span>
+                Correo electrónico <span className="text-[10px] text-slate-400 font-normal ml-1">(opcional si no has iniciado sesión)</span>
               </label>
               <div className="relative">
                 <input
@@ -328,7 +329,8 @@ export const QuoteRequestForm: React.FC<QuoteRequestFormProps> = ({ onSubmitQuot
                   placeholder="opcional"
                   value={clientEmail}
                   onChange={(e) => setClientEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400"
+                  readOnly={!!currentUser?.email}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 read-only:bg-slate-50"
                 />
               </div>
             </div>
