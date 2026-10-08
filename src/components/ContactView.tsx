@@ -24,9 +24,14 @@ export const ContactView: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, phone, subject, message, website }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || 'No pudimos enviar el mensaje.');
+        const raw = String(data.error || '');
+        setError(
+          /<!doctype|<html|just a moment/i.test(raw) || !raw
+            ? 'No pudimos enviar el mensaje. Intenta de nuevo en un minuto.'
+            : raw
+        );
         return;
       }
       setOk(data.message);
