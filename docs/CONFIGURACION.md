@@ -1,38 +1,52 @@
 # Configuración de Nydo Mallas
 
-La administradora principal es **ruth.cerna@gmail.com**. El registro público nunca crea otra cuenta administradora.
+La administradora principal es **ruth.cerna@gmail.com** (clave local por defecto `123456`). El registro público no crea otra cuenta administradora.
+
+El ingreso de equipo es **correo + contraseña**. Ya no se usa Google para entrar.
 
 ## Variables en Vercel (Production y Preview)
 
-Agrega estas claves en **Settings → Environment Variables**:
+Cópialas desde `.env.local` (no subas ese archivo a git). En Vercel: **Settings → Environment Variables**. Marca **Production** y **Preview**. Las que empiezan con `VITE_` también se usan en el **build**; después de agregarlas hay que **Redeploy**.
 
-| Variable | Dónde | Para qué |
+| Variable | Obligatoria | Valor |
 |---|---|---|
-| `VITE_SUPABASE_URL` | Cliente | Conectar el navegador a Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Cliente | Crear cotizaciones públicas |
-| `SUPABASE_URL` | Servidor | Igual que la URL de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Servidor (Secret) | Consultar y guardar cotizaciones, ventas y equipo |
-| `GOOGLE_CLIENT_ID` | Servidor | Validar el ingreso con Google |
-| `VITE_GOOGLE_CLIENT_ID` | Cliente | Mostrar el botón de Google (mismo valor) |
-| `SESSION_SECRET` | Servidor (Secret) | Firmar la sesión. Usa un texto largo al azar |
-| `ADMIN_EMAIL` | Servidor | `ruth.cerna@gmail.com` |
-| `CONTACT_TO_EMAIL` | Servidor | `nydo.mallas@gmail.com` |
-| `RESEND_API_KEY` | Servidor (Secret) | Envío real de Contáctanos |
-| `MAIL_FROM` | Servidor | Remitente autorizado en Resend |
+| `VITE_SUPABASE_URL` | Sí | Misma URL de Supabase que en develop |
+| `VITE_SUPABASE_ANON_KEY` | Sí | Misma `anon` / publishable que en develop |
+| `SUPABASE_URL` | Sí | Igual que `VITE_SUPABASE_URL` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sí (Secret) | `service_role` de Supabase, no la anon |
+| `SESSION_SECRET` | Sí (Secret) | El mismo texto largo de `.env.local` (mínimo 16 caracteres) |
+| `ADMIN_EMAIL` | Sí | `ruth.cerna@gmail.com` |
+| `ADMIN_PASSWORD` | Recomendada | La misma clave con la que entras en local (`123456` si no cambiaste nada) |
+| `CONTACT_TO_EMAIL` | Sí | `nydo.mallas@gmail.com` |
+| `QUOTE_COPY_EMAIL` | Sí | `nydo.mallas@gmail.com` |
+| `FORMSUBMIT_COMPANY_ID` | Sí | El id de FormSubmit ya activado en local |
+| `RESEND_API_KEY` | Sí (Secret) | La misma API key de Resend |
+| `MAIL_FROM` | Sí | `Nydo Mallas <onboarding@resend.dev>` (hasta verificar dominio) |
+| `APP_URL` | Sí | `https://build-program1.vercel.app` (o tu dominio) |
 
-## Pasos
+No hace falta `GOOGLE_CLIENT_ID` ni `VITE_GOOGLE_CLIENT_ID` para que el login y las cotizaciones funcionen como en develop.
 
-1. En [Google Cloud](https://console.cloud.google.com/) crea un ID de cliente OAuth (aplicación web).
-2. Autoriza orígenes: `http://localhost:3000` y `https://build-program1.vercel.app` (y tu dominio).
-3. En Supabase → SQL, ejecuta las migraciones de la carpeta `supabase/migrations`.
-4. Copia la **service_role** (no la anon) a `SUPABASE_SERVICE_ROLE_KEY`.
-5. Crea una API key en [Resend](https://resend.com) y un remitente verificado para `MAIL_FROM`.
-6. Vuelve a publicar (`vercel --prod` o Redeploy).
+`GEMINI_API_KEY` es opcional: el asistente público usa las preguntas frecuentes si no está.
 
-## Qué no está operativo sin esas claves
+## SQL en Supabase (mismo proyecto que develop)
 
-- Ingreso con Google: falta `GOOGLE_CLIENT_ID`.
-- Sincronizar datos, equipo y ventas desde el servidor: falta `SUPABASE_SERVICE_ROLE_KEY`.
-- Contáctanos con envío real: falta `RESEND_API_KEY`.
+En **Supabase → SQL → New query**, ejecuta en este orden si aún no están aplicadas (se pueden repetir; usan `if not exists`):
 
-No se muestra como exitoso un envío o un login que el servidor no pudo completar.
+1. `supabase/migrations/20261001220000_init_mallas.sql`
+2. `supabase/migrations/20261008030000_ops_permissions_sales.sql`
+3. `supabase/migrations/20261008160000_guided_quotes.sql`
+4. `supabase/migrations/20261008180000_internal_user_passwords.sql`
+
+Si develop ya usa este mismo proyecto de Supabase, los datos son los mismos. Solo faltan las columnas nuevas si no corriste esos archivos.
+
+## Correo en producción
+
+- FormSubmit se activó para `http://localhost:3000`. En Vercel el origen es otro: la **primera cotización** desde el sitio publicado mandará otra vez **Activate Form**. Hay que pulsar ese botón.
+- Resend en modo prueba **solo entrega a** `ruth.cerna@gmail.com`. El cliente genérico no recibe hasta verificar un dominio en [resend.com/domains](https://resend.com/domains) y cambiar `MAIL_FROM` a un correo de ese dominio.
+
+## Después de cargar las variables
+
+1. **Redeploy** de Production (o `npx vercel --prod`).
+2. Entra con `ruth.cerna@gmail.com` y la misma clave de local.
+3. Envía una cotización de prueba y confirma **Activate Form** si llega el aviso.
+4. Revisa `nydo.mallas@gmail.com` (también spam).

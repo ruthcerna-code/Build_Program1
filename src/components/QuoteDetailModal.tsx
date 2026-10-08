@@ -26,7 +26,7 @@ interface QuoteDetailModalProps {
   onDeleteQuote?: (quoteId: string) => void;
   onAcceptQuote?: (quoteId: string) => void;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
-  onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void;
+  onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void | Promise<void>;
 }
 
 export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
@@ -49,6 +49,8 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const isClient = currentUser?.role === 'cliente';
 
   return (
@@ -73,19 +75,29 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
           {canEdit && onSendEmail && (
             <button
               type="button"
-              onClick={() => {
-                const parsed = Number(total);
-                onUpdateStatus?.(quote.id, status);
-                onUpdateNotes?.(quote.id, notes, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
-                onSendEmail(quote.id, {
-                  total: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
-                  notes,
-                });
-                onClose();
+              disabled={sending}
+              onClick={async () => {
+                const parsed = Number(String(total).replace(/[^\d]/g, ''));
+                if (!Number.isFinite(parsed) || parsed <= 0) {
+                  setSendError('Ingresa el importe en pesos antes de enviar el correo al cliente.');
+                  return;
+                }
+                setSendError(null);
+                setSending(true);
+                try {
+                  onUpdateStatus?.(quote.id, status);
+                  onUpdateNotes?.(quote.id, notes, parsed);
+                  await onSendEmail(quote.id, { total: parsed, notes });
+                  onClose();
+                } catch (err: any) {
+                  setSendError(err?.message || 'No pudimos enviar el correo al cliente.');
+                } finally {
+                  setSending(false);
+                }
               }}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-60"
             >
-              Enviar al correo del cliente
+              {sending ? 'Enviando…' : 'Enviar al correo del cliente'}
             </button>
           )}
           {canEdit && (
@@ -178,13 +190,18 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
             </select>
           </label>
           <label className="block font-bold">
-            Importe
+            Importe (CLP)
             <input
               value={total}
-              onChange={(e) => setTotal(e.target.value)}
+              onChange={(e) => {
+                setTotal(e.target.value);
+                setSendError(null);
+              }}
+              placeholder="Ej: 180000"
               className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2"
             />
           </label>
+          {sendError && <p className="text-sm font-bold text-rose-700">{sendError}</p>}
           <label className="block font-bold">
             Observaciones
             <textarea

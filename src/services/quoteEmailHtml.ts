@@ -245,11 +245,18 @@ function pricedInner(quote: QuoteRequest, recipient: 'client' | 'company') {
       ? `Presupuesto enviado a ${quote.clientName} <${quote.clientEmail}>.`
       : `Hola ${quote.clientName}: adjuntamos el presupuesto de mallas de seguridad para tu propiedad.`;
 
+  const hasBreakdown = Boolean(
+    admin &&
+      (admin.profilesAndFixingsCost > 0 ||
+        admin.laborAndInstallCost > 0 ||
+        (admin.meshTotalCost > 0 && admin.meshTotalCost !== admin.total))
+  );
   const valueRows = admin
-    ? `${infoRow('Malla y anclajes', formatCLP(admin.meshTotalCost))}
-       ${infoRow('Perfiles y fijaciones', formatCLP(admin.profilesAndFixingsCost))}
-       ${infoRow('Mano de obra e instalación', formatCLP(admin.laborAndInstallCost))}
+    ? `${hasBreakdown ? infoRow('Malla y anclajes', formatCLP(admin.meshTotalCost)) : ''}
+       ${hasBreakdown ? infoRow('Perfiles y fijaciones', formatCLP(admin.profilesAndFixingsCost)) : ''}
+       ${hasBreakdown ? infoRow('Mano de obra e instalación', formatCLP(admin.laborAndInstallCost)) : ''}
        ${admin.discountAmount > 0 ? infoRow(`Descuento (${admin.discountPercentage}%)`, `-${formatCLP(admin.discountAmount)}`) : ''}
+       ${infoRow('Total', formatCLP(admin.total))}
        ${infoRow('Garantía', `${admin.warrantyYears} años`)}
        ${infoRow('Tiempo estimado', admin.estimatedTime)}
        ${admin.adminNotes ? infoRow('Observaciones', admin.adminNotes) : ''}`

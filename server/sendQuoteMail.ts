@@ -164,34 +164,34 @@ export async function sendQuoteRequestEmail(
     const companyMail = contentFor(quote, kind, 'company');
     const clientMail = contentFor(quote, kind, 'client');
 
-    const company = await sendInboxEmail(
-      companyTo,
-      companyMail.subject,
-      companyMail.text,
+    const client = await sendInboxEmail(
       clientTo,
-      companyMail.html
+      clientMail.subject,
+      clientMail.text,
+      companyTo,
+      clientMail.html
     );
-    const client =
+    const company =
       clientTo === companyTo
-        ? company
+        ? client
         : await sendInboxEmail(
-            clientTo,
-            clientMail.subject,
-            clientMail.text,
             companyTo,
-            clientMail.html
+            companyMail.subject,
+            companyMail.text,
+            clientTo,
+            companyMail.html
           );
 
-    if (!company.sent) {
-      return {
-        sent: false,
-        error: `No llegó a nydo.mallas@gmail.com. ${company.error || ''}`.trim(),
-      };
-    }
     if (!client.sent) {
       return {
         sent: false,
-        error: `Llegó a nydo.mallas@gmail.com, pero no al cliente (${clientTo}). ${client.error || ''}`.trim(),
+        error: `No llegó al cliente (${clientTo}). ${client.error || ''}`.trim(),
+      };
+    }
+    if (!company.sent) {
+      return {
+        sent: true,
+        error: `El cliente lo recibió. No llegó a nydo.mallas@gmail.com. ${company.error || ''}`.trim(),
       };
     }
     return { sent: true };
