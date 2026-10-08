@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { QuoteRequest, InstallerAssignment } from '../types';
 import { formatCurrency } from '../services/quoteStorage';
+import { CONTACT_PHONE_DISPLAY } from '../constants/contact';
 
 interface ApprovedQuotesViewProps {
   quotes: QuoteRequest[];
@@ -106,7 +107,7 @@ export const ApprovedQuotesView: React.FC<ApprovedQuotesViewProps> = ({
 
     const assignment: InstallerAssignment = {
       technicianName: techName.trim() || 'Técnico Asignado',
-      technicianPhone: techPhone.trim() || '+56 9 8000 2400',
+      technicianPhone: techPhone.trim() || CONTACT_PHONE_DISPLAY,
       technicianRole: techRole.trim(),
       assignedAt: new Date().toISOString(),
       installationStatus: installStatus,

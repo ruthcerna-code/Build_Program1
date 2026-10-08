@@ -8,15 +8,15 @@ import {
   Wrench,
   LogIn,
   LogOut,
-  KeyRound,
   ChevronDown,
   Database,
+  CheckCircle2,
 } from 'lucide-react';
 import { UserAccount } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import { isUserAdmin, isUserTechnician } from '../services/authStorage';
 import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
-import { canManageUsers, canViewQuotes, canViewSales } from '../services/permissions';
+import { canViewQuotes, canViewSales } from '../services/permissions';
 import { isPrincipalAdminEmail } from '../constants/admin';
 
 export type AppView =
@@ -28,6 +28,8 @@ export type AppView =
   | 'technician_orders'
   | 'client_portal'
   | 'contact'
+  | 'privacy'
+  | 'terms'
   | 'sales'
   | 'team';
 
@@ -48,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentView,
   onNavigate,
   pendingQuotesCount,
+  approvedQuotesCount,
   technicianOrdersCount,
   currentUser,
   onOpenLogin,
@@ -59,7 +62,6 @@ export const Header: React.FC<HeaderProps> = ({
   const isAdmin = isUserAdmin(currentUser || null);
   const isTechnician = isUserTechnician(currentUser || null);
   const showSales = canViewSales(currentUser || null);
-  const showTeam = canManageUsers(currentUser || null);
   const showInternalTools = isPrincipalAdminEmail(currentUser?.email);
 
   const navBase = isAdmin
@@ -86,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline font-semibold">
-              Admin: {currentUser?.email || 'rcv.informacion@gmail.com'}
+              Admin: {currentUser?.email || 'ruth.cerna@gmail.com'}
             </span>
             <span className="text-[10px] bg-slate-950/20 px-2 py-0.2 rounded font-bold">
               {supabaseConnected ? 'Supabase conectado' : 'BD local'}
@@ -99,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-18 gap-3">
           <div
             id="brand-logo-container"
-            onClick={() => onNavigate('client')}
+            onClick={() => onNavigate(isAdmin ? 'admin' : 'client')}
             className="flex items-center gap-3 cursor-pointer group min-w-0"
           >
             <div
@@ -118,9 +120,10 @@ export const Header: React.FC<HeaderProps> = ({
                     isAdmin ? 'text-white' : 'text-slate-900'
                   }`}
                 >
-                  Mallas
+                  Nydo
                   <span className={isAdmin ? 'text-amber-400' : 'text-sky-600'}>
-                    Seguras
+                    {' '}
+                    Mallas
                   </span>
                 </span>
                 {isAdmin ? (
@@ -154,25 +157,6 @@ export const Header: React.FC<HeaderProps> = ({
               {isAdmin ? (
                 <>
                   <button
-                    id="btn-nav-client"
-                    type="button"
-                    onClick={() => onNavigate('client')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                      currentView === 'client'
-                        ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                    }`}
-                    title="Ir al Home del Administrador"
-                  >
-                    <Home
-                      className={`w-3.5 h-3.5 ${
-                        currentView === 'client' ? 'text-slate-950' : 'text-amber-400'
-                      }`}
-                    />
-                    <span>Home Admin</span>
-                  </button>
-
-                  <button
                     id="btn-nav-admin"
                     type="button"
                     onClick={() => onNavigate('admin')}
@@ -181,14 +165,14 @@ export const Header: React.FC<HeaderProps> = ({
                         ? 'bg-sky-600 text-white shadow-sm'
                         : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
                     }`}
-                    title="Dashboard de Recepción de Cotizaciones"
+                    title="Cotizaciones recibidas"
                   >
                     <Inbox
                       className={`w-3.5 h-3.5 ${
                         currentView === 'admin' ? 'text-white' : 'text-sky-400'
                       }`}
                     />
-                    <span className="hidden sm:inline">Recepción</span>
+                    <span>CT recibida</span>
                     {pendingQuotesCount > 0 && (
                       <span
                         id="badge-pending-count"
@@ -204,70 +188,56 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
 
                   <button
-                    id="btn-nav-technician-orders"
+                    id="btn-nav-approved-quotes"
                     type="button"
-                    onClick={() => onNavigate('technician_orders')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                      currentView === 'technician_orders'
-                        ? 'bg-indigo-600 text-white shadow-sm'
+                    onClick={() => onNavigate('approved_quotes')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 relative whitespace-nowrap cursor-pointer ${
+                      currentView === 'approved_quotes'
+                        ? 'bg-emerald-600 text-white shadow-sm'
                         : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
                     }`}
-                    title="Recepción de pedidos por técnicos"
+                    title="Cotizaciones aceptadas"
                   >
-                    <Wrench
+                    <CheckCircle2
                       className={`w-3.5 h-3.5 ${
-                        currentView === 'technician_orders' ? 'text-white' : 'text-indigo-400'
+                        currentView === 'approved_quotes' ? 'text-white' : 'text-emerald-400'
                       }`}
                     />
-                    <span className="hidden sm:inline">Pedidos</span>
-                    {technicianOrdersCount > 0 && (
+                    <span>CT Aceptadas</span>
+                    {approvedQuotesCount > 0 && (
                       <span
                         className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                          currentView === 'technician_orders'
-                            ? 'bg-white text-indigo-900'
-                            : 'bg-indigo-500/30 text-indigo-300'
+                          currentView === 'approved_quotes'
+                            ? 'bg-white text-emerald-800'
+                            : 'bg-emerald-500/30 text-emerald-200'
                         }`}
                       >
-                        {technicianOrdersCount}
+                        {approvedQuotesCount}
                       </span>
                     )}
                   </button>
-                  {showSales && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('sales')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
-                        currentView === 'sales'
-                          ? 'bg-white text-slate-900'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                      }`}
-                    >
-                      <span>Ventas</span>
-                    </button>
-                  )}
-                  {showTeam && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('team')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
-                        currentView === 'team'
-                          ? 'bg-white text-slate-900'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                      }`}
-                    >
-                      <span>Equipo</span>
-                    </button>
-                  )}
+
                   <button
                     type="button"
-                    onClick={() => onNavigate('contact')}
+                    onClick={() => onNavigate('sales')}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
-                      currentView === 'contact'
+                      currentView === 'sales'
                         ? 'bg-white text-slate-900'
                         : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
                     }`}
                   >
-                    <span>Contáctanos</span>
+                    <span>Ventas</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('team')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
+                      currentView === 'team'
+                        ? 'bg-white text-slate-900'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                    }`}
+                  >
+                    <span>Cuentas</span>
                   </button>
                 </>
               ) : currentUser?.role === 'interno' ? (
@@ -527,17 +497,6 @@ export const Header: React.FC<HeaderProps> = ({
                           </button>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            if (onOpenLogin) onOpenLogin('reset_password');
-                          }}
-                          className="w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700 flex items-center gap-2 transition-colors"
-                        >
-                          <KeyRound className="w-3.5 h-3.5 text-sky-600" />
-                          <span>Cambiar contraseña</span>
-                        </button>
                       </div>
 
                       <div className="pt-1 border-t border-slate-100">

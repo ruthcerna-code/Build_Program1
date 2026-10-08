@@ -1,4 +1,28 @@
+import type {
+  FinishType,
+  HeightRange,
+  LengthRange,
+  SurfaceType,
+  TimelineType,
+  WorkType,
+} from './constants/guidedQuote';
+
 export type MeshType = 'monofilamento' | 'multifilamento';
+
+export interface GuidedQuoteDetails {
+  regionCode: string;
+  regionName: string;
+  commune: string;
+  workType: WorkType;
+  surfaceType: SurfaceType;
+  lengthRange: LengthRange;
+  heightRange: HeightRange;
+  finishType: FinishType;
+  finishColor?: string;
+  timeline: TimelineType;
+  acceptedTerms: boolean;
+  commercialOptIn: boolean;
+}
 
 export type PropertyType = 'departamento' | 'casa' | 'oficina' | 'otro';
 
@@ -39,12 +63,15 @@ export interface PaymentRecord {
 export interface WindowItem {
   id: string;
   name: string;
-  height: number; // in meters
-  width: number;  // in meters
+  height: number; // in meters (derived)
+  width: number;  // in meters (derived)
   unit: 'm' | 'cm';
   meshType: MeshType;
-  area: number;   // calculated in square meters
+  area: number;   // calculated in square meters, unrounded
   notes?: string;
+  order?: number;
+  widthCm?: number;
+  heightCm?: number;
 }
 
 export type ScheduleOption = 'opcion_1' | 'opcion_2' | 'personalizada';
@@ -124,14 +151,16 @@ export interface QuoteRequest {
   deletedAt?: string;
   changeHistory?: QuoteChangeEvent[];
   ownerEmail?: string;
+  quoteSource?: 'classic' | 'guided';
+  guidedQuote?: GuidedQuoteDetails;
   // Technical execution by installer
   technicianExecution?: TechnicianExecution;
-  // Automated email dispatch to rcv.informacion@gmail.com and client copy
+  // Automated email dispatch to nydo.mallas@gmail.com and client copy
   emailDispatch?: QuoteEmailDispatch;
 }
 
 export interface QuoteEmailDispatch {
-  toCompany: string; // rcv.informacion@gmail.com
+  toCompany: string; // nydo.mallas@gmail.com
   toClient: string;  // client email
   sentAt: string;
   companyDelivered: boolean;

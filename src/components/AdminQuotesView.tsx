@@ -23,8 +23,6 @@ import {
   MapPin,
   AlertCircle,
   ExternalLink,
-  ChevronDown,
-  ChevronUp,
   Database,
   RefreshCw,
   Shield,
@@ -43,6 +41,7 @@ import { formatCurrency } from '../services/quoteStorage';
 import { getStoredAccessLogs, syncAccessLogsWithFirestore } from '../services/accessLogService';
 import { AdminQuoteEditorModal } from './AdminQuoteEditorModal';
 import { EmailPreviewModal } from './EmailPreviewModal';
+import { QuoteWindowsPanel } from './WindowsMeasureTable';
 
 // 4 technicians available for assignment
 export const FOUR_TECHNICIANS = [
@@ -116,7 +115,6 @@ export const AdminQuotesView: React.FC<AdminQuotesViewProps> = ({
   const [selectedQuoteForEmail, setSelectedQuoteForEmail] = useState<QuoteRequest | null>(null);
   const [quoteForPayment, setQuoteForPayment] = useState<QuoteRequest | null>(null);
   const [quoteToDeleteId, setQuoteToDeleteId] = useState<string | null>(null);
-  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleRefreshAccessLogs = async () => {
@@ -380,7 +378,7 @@ export const AdminQuotesView: React.FC<AdminQuotesViewProps> = ({
               PANTALLA DE CONTROL &bull; RECEPCIÓN ADMIN
             </span>
             <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-              Central: <strong className="text-slate-800">rcv.informacion@gmail.com</strong>
+              Central: <strong className="text-slate-800">ruth.cerna@gmail.com</strong>
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -695,7 +693,7 @@ export const AdminQuotesView: React.FC<AdminQuotesViewProps> = ({
                 Lista de Cotizaciones Solicitadas por Responder ({solicitadasCount})
               </h3>
               <p className="text-xs text-slate-600 mt-0.5 max-w-3xl leading-relaxed">
-                El cliente completó sus medidas sin precio. Tu labor como administrador es evaluar las ventanas, fijar el valor definitivo y presionar <strong>«Responder y Enviar al Correo»</strong> para despachar la propuesta formal a su cuenta de Gmail.
+                El cliente completó sus medidas sin precio. Tu labor como administrador es evaluar las ventanas, fijar el valor definitivo y responder al cliente por WhatsApp, teléfono o correo.
               </p>
             </div>
           </div>
@@ -737,7 +735,6 @@ export const AdminQuotesView: React.FC<AdminQuotesViewProps> = ({
               const isQuoted = quote.status === 'cotizada';
               const isAccepted = quote.status === 'aceptada';
               const adminQuote = quote.adminQuote;
-              const isExpanded = expandedQuoteId === quote.id;
               const isConfirmingDelete = quoteToDeleteId === quote.id;
 
               const totalAmount = adminQuote?.total || 0;
@@ -839,45 +836,7 @@ export const AdminQuotesView: React.FC<AdminQuotesViewProps> = ({
 
                       {/* Windows summary and requested dates */}
                       <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 text-xs space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="font-semibold text-slate-800">
-                            <strong>{quote.windows.length}</strong> ventana(s) &bull;{' '}
-                            <strong>{quote.totalAreaM2.toFixed(2)} m²</strong> de malla
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => setExpandedQuoteId(isExpanded ? null : quote.id)}
-                            className="text-sky-700 hover:text-sky-900 font-bold flex items-center gap-1 text-[11px] cursor-pointer"
-                          >
-                            <span>{isExpanded ? 'Ocultar medidas' : 'Ver detalle de ventanas'}</span>
-                            {isExpanded ? (
-                              <ChevronUp className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Expandable windows table */}
-                        {isExpanded && (
-                          <div className="pt-2 border-t border-slate-200 space-y-1.5 animate-fade-in">
-                            {quote.windows.map((win, i) => (
-                              <div
-                                key={win.id || i}
-                                className="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-slate-200 text-[11px]"
-                              >
-                                <span className="font-semibold text-slate-800">
-                                  #{i + 1} {win.name}
-                                </span>
-                                <span className="text-slate-600">
-                                  {win.height}m alto &times; {win.width}m ancho ({win.area} m²)
-                                </span>
-                                <span className="text-slate-500 capitalize">{win.meshType}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <QuoteWindowsPanel quote={quote} compact />
 
                         {/* Tentative dates requested by client */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200/60">

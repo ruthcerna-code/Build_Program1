@@ -135,6 +135,8 @@ export const mapQuoteToDbRow = (quote: QuoteRequest) => {
     owner_email: (quote.ownerEmail || quote.clientEmail || '').toLowerCase(),
     change_history: quote.changeHistory || [],
     payments: quote.payments || [],
+    quote_source: quote.quoteSource || 'guided',
+    guided_quote: quote.guidedQuote || null,
   };
 };
 
@@ -174,6 +176,8 @@ export const mapDbRowToQuote = (row: any): QuoteRequest => {
     ownerEmail: row.owner_email || row.client_email,
     changeHistory: Array.isArray(row.change_history) ? row.change_history : [],
     payments: Array.isArray(row.payments) ? row.payments : [],
+    quoteSource: row.quote_source || undefined,
+    guidedQuote: row.guided_quote || undefined,
   };
 };
 

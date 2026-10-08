@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { QuoteRequest, TechnicianExecution, TechnicianWorkStatus, UserAccount } from '../types';
 import { formatCurrency } from '../services/quoteStorage';
+import { CONTACT_PHONE_DISPLAY } from '../constants/contact';
 import {
   Wrench,
   CheckCircle2,
@@ -403,12 +404,12 @@ export const TechnicianOrdersView: React.FC<TechnicianOrdersViewProps> = ({
                 : quote.technicianExecution?.notes || '';
 
             const assignedTech = quote.installerAssignment?.technicianName || 'Técnico General Mallas';
-            const assignedTechPhone = quote.installerAssignment?.technicianPhone || '+56 9 8000 2400';
+            const assignedTechPhone = quote.installerAssignment?.technicianPhone || CONTACT_PHONE_DISPLAY;
             const mapQuery = encodeURIComponent(`${quote.clientAddress}, ${quote.clientCity}, Chile`);
             const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
             const cleanPhone = quote.clientPhone.replace(/\D/g, '');
             const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-              `Hola ${quote.clientName}, nos comunicamos de MallasSeguras respecto a la instalación de mallas de seguridad (Folio ${quote.folio}).`
+              `Hola ${quote.clientName}, nos comunicamos de Nydo Mallas respecto a la instalación de mallas de seguridad (Folio ${quote.folio}).`
             )}`;
 
             return (

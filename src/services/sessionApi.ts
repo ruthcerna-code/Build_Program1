@@ -40,16 +40,14 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   return data;
 }
 
-export async function loginWithGoogleToken(idToken: string): Promise<{ user: UserAccount; token: string }> {
-  const data = await apiFetch('/api/auth/google', {
+export async function loginWithPassword(
+  email: string,
+  password: string
+): Promise<{ user: UserAccount; token: string }> {
+  const data = await apiFetch('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ email, password }),
   });
   setSessionToken(data.token);
   return data;
-}
-
-export async function fetchAuthConfig(): Promise<{ googleClientId: string | null; googleReady: boolean }> {
-  const res = await fetch('/api/auth/config');
-  return res.json();
 }

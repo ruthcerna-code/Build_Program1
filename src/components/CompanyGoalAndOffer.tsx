@@ -74,7 +74,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-              Mallas de seguridad:{' '}
+              Nydo Mallas:{' '}
               <span className="text-sky-400">protección para tu familia</span>
             </h1>
 
@@ -108,7 +108,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   onClick={onGoToQuoteMesh}
                   className="px-6 py-3 rounded-2xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-lg flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Pedir cotización</span>
+                  <span>Solicitar cotización</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}
@@ -483,7 +483,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             <div>
               <h4 className="font-bold text-white text-xs sm:text-sm">Listo para cotizar</h4>
               <p className="text-[11px] text-slate-300">
-                Nombre, teléfono, comuna y una foto. Sin Gmail obligatorio.
+                Cotización interactiva: región, tipo de trabajo, medidas y tus datos de contacto.
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -493,7 +493,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                   onClick={onGoToQuoteMesh}
                   className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
                 >
-                  <span>Pedir cotización</span>
+                  <span>Solicitar cotización</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { matchFaqAnswer } from './src/constants/faqAssistant';
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY } from './src/constants/contact';
 import { mountApiRoutes } from './server/apiRoutes';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,19 +56,19 @@ app.post('/api/assistant/chat', async (req, res) => {
     if (!ai) {
       console.warn('Gemini API key not found on server, fallback to local grounded responder.');
       return res.json({
-        reply: `Como asistente de MallasSeguras, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${cleanRut}). (Modo local activo)`,
+        reply: `Como asistente de Nydo Mallas, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${cleanRut}). (Modo local activo)`,
         fallback: true,
       });
     }
 
     // System prompt enforcing strict adherence to user's quotes by RUT
-    const systemInstruction = `Eres el Asistente Oficial y Exclusivo de Cotizaciones para Clientes de MallasSeguras (empresa líder en Chile en mallas de seguridad y protección para ventanas, balcones y terrazas).
+    const systemInstruction = `Eres el Asistente Oficial y Exclusivo de Cotizaciones para Clientes de Nydo Mallas (empresa líder en Chile en mallas de seguridad y protección para ventanas, balcones y terrazas).
 
 REGLA ESTRICTA E INQUEBRANTABLE DE SEGURIDAD Y ALCANCE:
 1. Tu ÚNICA competencia es responder dudas sobre las cotizaciones solicitadas por el RUT del usuario: "${cleanRut}".
 2. Te proporcionamos la lista completa de cotizaciones pertenecientes a este RUT en el contexto JSON.
 3. Si el usuario te hace preguntas sobre CUALQUIER otro tema ajeno a sus cotizaciones (por ejemplo: cocina, recetas, chistes, fútbol, política, opiniones personales, programación, clima, tareas escolares, o cotizaciones de otras personas), TIENES ESTRICTAMENTE PROHIBIDO responder sobre ese tema ajeno. En ese caso, debes responder CORTÉS Y TAXATIVAMENTE:
-"Como asistente de MallasSeguras, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${cleanRut}). Para consultas generales o solicitar una nueva cotización, por favor comuníquese a rcv.informacion@gmail.com o al +56 9 8000 2400."
+"Como asistente de Nydo Mallas, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${cleanRut}). Para consultas generales o solicitar una nueva cotización, por favor comuníquese a ${CONTACT_EMAIL} o al ${CONTACT_PHONE_DISPLAY}."
 4. Si la lista de cotizaciones provista para este RUT está vacía, infórmale amablemente que no existen cotizaciones registradas para el RUT ${cleanRut}, y sugiérele revisar el RUT o solicitar una nueva cotización desde el botón "Cotizar Malla".
 5. Si existen cotizaciones para este RUT:
    - Responde con tono profesional, cálido, claro y conciso en español de Chile.
@@ -128,7 +129,7 @@ Recuerda: Responde ÚNICAMENTE en función de las cotizaciones de este RUT. Si l
     for (const pattern of outOfBoundsPatterns) {
       if (qLower.includes(pattern)) {
         return res.json({
-          reply: `Como asistente de MallasSeguras, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${cleanRut}). Para consultas generales, por favor comuníquese a rcv.informacion@gmail.com o al +56 9 8000 2400.`,
+          reply: `Como asistente de Nydo Mallas, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${cleanRut}). Para consultas generales, por favor comuníquese a ${CONTACT_EMAIL} o al ${CONTACT_PHONE_DISPLAY}.`,
           rut: cleanRut,
           isOutOfScope: true,
         });

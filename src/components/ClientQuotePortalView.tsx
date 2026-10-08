@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { QuoteRequest } from '../types';
 import { formatCurrency } from '../services/quoteStorage';
+import { CONTACT_PHONE_E164 } from '../constants/contact';
 
 interface ClientQuotePortalViewProps {
   quote?: QuoteRequest | null;
@@ -110,8 +111,8 @@ export const ClientQuotePortalView: React.FC<ClientQuotePortalViewProps> = ({
     : formattedDate;
 
   // WhatsApp response link
-  const whatsappUrl = `https://wa.me/56980002400?text=${encodeURIComponent(
-    `Hola MallasSeguras, soy ${quote.clientName}. Recibí la cotización ${quote.folio} por ${
+  const whatsappUrl = `https://wa.me/${CONTACT_PHONE_E164}?text=${encodeURIComponent(
+    `Hola Nydo Mallas, soy ${quote.clientName}. Recibí la cotización ${quote.folio} por ${
       adminQuote ? formatCurrency(adminQuote.total) : 'el presupuesto'
     } y deseo coordinar la instalación.`
   )}`;
@@ -193,7 +194,7 @@ export const ClientQuotePortalView: React.FC<ClientQuotePortalViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black tracking-tight text-slate-900">
-                  Mallas<span className="text-sky-600">Seguras</span>
+                  Nydo<span className="text-sky-600"> Mallas</span>
                 </span>
                 <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
                   Presupuesto Oficial

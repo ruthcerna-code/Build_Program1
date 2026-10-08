@@ -1,13 +1,12 @@
 import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
-import { OAuth2Client } from 'google-auth-library';
 import {
-  ADMIN_EMAIL,
-  GOOGLE_CLIENT_ID,
+  ADMIN_PASSWORD,
   SESSION_SECRET,
   isPrincipalAdmin,
 } from './config';
 import { getAdminClient } from './supabaseAdmin';
+import { safeEqual, verifyPassword } from './passwords';
 import type { InternalPermissions, UserAccount, UserRole } from '../src/types';
 
 export interface SessionUser {
@@ -19,8 +18,6 @@ export interface SessionUser {
   active: boolean;
   emailVerified: boolean;
 }
-
-const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 const EMPTY_PERMS: InternalPermissions = {
   viewQuotes: false,
@@ -115,22 +112,52 @@ export async function resolveRole(email: string, name: string): Promise<SessionU
   };
 }
 
-export async function verifyGoogleIdToken(idToken: string): Promise<SessionUser> {
-  if (!googleClient || !GOOGLE_CLIENT_ID) {
-    throw new Error('GOOGLE_CLIENT_ID no está configurado en el servidor.');
+export async function authenticateWithPassword(email: string, password: string): Promise<SessionUser> {
+  const normalized = email.trim().toLowerCase();
+  const pass = password.trim();
+  if (!normalized || !pass) {
+    throw new Error('Ingresa tu correo y tu contraseña.');
   }
 
-  const ticket = await googleClient.verifyIdToken({
-    idToken,
-    audience: GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
-  const email = payload?.email?.toLowerCase();
-  if (!email || !payload?.email_verified) {
-    throw new Error('La cuenta de Google no tiene un correo verificado.');
+  if (isPrincipalAdmin(normalized)) {
+    if (!safeEqual(pass, ADMIN_PASSWORD)) {
+      throw new Error('Correo o contraseña incorrectos.');
+    }
+    return resolveRole(normalized, 'Ruth Cerna');
   }
 
-  return resolveRole(email, payload.name || email.split('@')[0]);
+  const admin = getAdminClient();
+  if (!admin) {
+    throw new Error('No hay una cuenta creada para ese correo.');
+  }
+
+  const { data: internal } = await admin
+    .from('internal_users')
+    .select('*')
+    .eq('email', normalized)
+    .maybeSingle();
+
+  if (!internal) {
+    throw new Error('No hay una cuenta creada para ese correo. Pide a la administradora que te registre.');
+  }
+  if (internal.active === false) {
+    throw new Error('Tu acceso está desactivado. Pide ayuda a la administradora.');
+  }
+
+  let storedHash = String(internal.password_hash || '');
+  if (!storedHash) {
+    const { data: appUser } = await admin
+      .from('app_users')
+      .select('password_hash')
+      .eq('email', normalized)
+      .maybeSingle();
+    storedHash = String(appUser?.password_hash || '');
+  }
+  if (!verifyPassword(pass, storedHash)) {
+    throw new Error('Correo o contraseña incorrectos.');
+  }
+
+  return resolveRole(normalized, internal.full_name || normalized.split('@')[0]);
 }
 
 export function requireSession(req: Request, res: Response, next: NextFunction) {
@@ -165,7 +192,7 @@ export function requirePrincipalAdmin(req: Request, res: Response, next: NextFun
 
 export function sessionToAccount(user: SessionUser): UserAccount {
   return {
-    id: `google-${user.email}`,
+    id: `user-${user.email}`,
     email: user.email,
     passwordHash: '',
     fullName: user.name,
@@ -173,8 +200,8 @@ export function sessionToAccount(user: SessionUser): UserAccount {
     createdAt: new Date().toISOString(),
     active: user.active,
     permissions: user.permissions,
-    authProvider: 'google',
+    authProvider: 'password',
   };
 }
 
-export { ADMIN_EMAIL, EMPTY_PERMS, ADMIN_PERMS };
+export { EMPTY_PERMS, ADMIN_PERMS };

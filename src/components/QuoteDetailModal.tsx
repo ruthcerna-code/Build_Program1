@@ -3,6 +3,16 @@ import { QuoteRequest, QuoteStatus, UserAccount } from '../types';
 import { DetailModal } from './DetailModal';
 import { QUOTE_STATUS_OPTIONS, quoteStatusLabel, PAYMENT_STATUS_LABELS } from '../constants/quoteStatus';
 import { formatCurrency } from '../services/quoteStorage';
+import {
+  FINISH_OPTIONS,
+  HEIGHT_OPTIONS,
+  LENGTH_OPTIONS,
+  SURFACE_OPTIONS,
+  TIMELINE_OPTIONS,
+  WORK_TYPE_OPTIONS,
+  labelOf,
+} from '../constants/guidedQuote';
+import { QuoteWindowsPanel } from './WindowsMeasureTable';
 
 interface QuoteDetailModalProps {
   quote: QuoteRequest;
@@ -16,6 +26,7 @@ interface QuoteDetailModalProps {
   onDeleteQuote?: (quoteId: string) => void;
   onAcceptQuote?: (quoteId: string) => void;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
+  onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void;
 }
 
 export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
@@ -30,6 +41,7 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
   onDeleteQuote,
   onAcceptQuote,
   onRegisterPayment,
+  onSendEmail,
 }) => {
   const [notes, setNotes] = useState(quote.adminQuote?.adminNotes || quote.clientComments || '');
   const [total, setTotal] = useState(String(quote.adminQuote?.total || ''));
@@ -58,6 +70,24 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
               Aceptar cotización
             </button>
           )}
+          {canEdit && onSendEmail && (
+            <button
+              type="button"
+              onClick={() => {
+                const parsed = Number(total);
+                onUpdateStatus?.(quote.id, status);
+                onUpdateNotes?.(quote.id, notes, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+                onSendEmail(quote.id, {
+                  total: Number.isFinite(parsed) && parsed > 0 ? parsed : undefined,
+                  notes,
+                });
+                onClose();
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer"
+            >
+              Enviar al correo del cliente
+            </button>
+          )}
           {canEdit && (
             <button
               type="button"
@@ -78,18 +108,58 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
         </>
       }
     >
+      <p><strong>N° cotización:</strong> {quote.folio}</p>
+      <p><strong>Fecha y hora de solicitud:</strong> {new Date(quote.createdAt).toLocaleString('es-CL')}</p>
+      <p>
+        <strong>Fecha y hora de respuesta:</strong>{' '}
+        {quote.adminQuote?.sentAt || quote.emailDispatch?.sentAt
+          ? new Date(quote.adminQuote?.sentAt || quote.emailDispatch?.sentAt || '').toLocaleString('es-CL')
+          : 'Sin registro'}
+      </p>
       <p><strong>Cliente:</strong> {quote.clientName}</p>
       <p><strong>Correo:</strong> {quote.clientEmail}</p>
       <p><strong>Teléfono:</strong> {quote.clientPhone || 'No indicado'}</p>
-      <p><strong>Comuna:</strong> {quote.clientCity || 'No indicada'}</p>
-      <p><strong>Fecha:</strong> {new Date(quote.createdAt).toLocaleString('es-CL')}</p>
+      <p>
+        <strong>Región y comuna:</strong>{' '}
+        {[quote.guidedQuote?.regionName || quote.clientAddress, quote.guidedQuote?.commune || quote.clientCity]
+          .filter(Boolean)
+          .join(' · ') || 'No indicada'}
+      </p>
+      {quote.guidedQuote && (
+        <>
+          <p>
+            <strong>Tipo de trabajo:</strong> {labelOf(WORK_TYPE_OPTIONS, quote.guidedQuote.workType)}
+          </p>
+          <p>
+            <strong>Superficie:</strong> {labelOf(SURFACE_OPTIONS, quote.guidedQuote.surfaceType)}
+          </p>
+          <p>
+            <strong>Longitud (rango):</strong> {labelOf(LENGTH_OPTIONS, quote.guidedQuote.lengthRange)}
+          </p>
+          <p>
+            <strong>Altura (rango):</strong> {labelOf(HEIGHT_OPTIONS, quote.guidedQuote.heightRange)}
+          </p>
+          <p>
+            <strong>Acabado:</strong>{' '}
+            {quote.guidedQuote.finishType === 'lacado_otros' && quote.guidedQuote.finishColor
+              ? `${labelOf(FINISH_OPTIONS, quote.guidedQuote.finishType)} (${quote.guidedQuote.finishColor})`
+              : labelOf(FINISH_OPTIONS, quote.guidedQuote.finishType)}
+          </p>
+          <p>
+            <strong>Plazo:</strong> {labelOf(TIMELINE_OPTIONS, quote.guidedQuote.timeline)}
+          </p>
+        </>
+      )}
+      <QuoteWindowsPanel quote={quote} />
       <p><strong>Importe cotizado:</strong> {quote.adminQuote ? formatCurrency(quote.adminQuote.total) : 'Aún no tiene precio'}</p>
       <p>
         <strong>Pago:</strong>{' '}
         {PAYMENT_STATUS_LABELS[quote.paymentStatus || 'pendiente']} · cobrado{' '}
         {formatCurrency(quote.paidAmount || 0)}
       </p>
-      {quote.clientComments && <p><strong>Comentario:</strong> {quote.clientComments}</p>}
+      {quote.clientComments && quote.quoteSource !== 'guided' && (
+        <p><strong>Comentario:</strong> {quote.clientComments}</p>
+      )}
 
       {canEdit && (
         <div className="space-y-2 pt-2 border-t border-slate-200">

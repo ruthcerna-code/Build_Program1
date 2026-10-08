@@ -7,7 +7,6 @@ import {
   QuoteChangeEvent,
   PaymentRecord,
 } from '../types';
-import { createQuoteEmailDispatch } from './emailFormatter';
 import { INITIAL_QUOTES } from '../data/initialQuotes';
 import { matchesRut, cleanRut } from '../utils/rutUtils';
 import { getCurrentUser } from './authStorage';
@@ -126,7 +125,6 @@ export const addQuoteRequest = (newQuote: QuoteRequest): QuoteRequest[] => {
     {
       ...newQuote,
       ownerEmail: newQuote.ownerEmail || newQuote.clientEmail,
-      emailDispatch: newQuote.emailDispatch || createQuoteEmailDispatch(newQuote),
     },
     'Crear',
     'Se creó la solicitud de cotización'

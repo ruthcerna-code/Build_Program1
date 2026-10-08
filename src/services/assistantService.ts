@@ -1,6 +1,7 @@
 import { QuoteRequest } from '../types';
 import { cleanRut, formatRut, matchesRut } from '../utils/rutUtils';
 import { matchFaqAnswer } from '../constants/faqAssistant';
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY } from '../constants/contact';
 
 export interface AssistantMessage {
   id: string;
@@ -65,7 +66,7 @@ export function generateLocalAssistantResponse(
   // Check if query is unrelated to quotes
   if (!isQueryAboutQuotes(userQuery)) {
     return {
-      text: `Como asistente de MallasSeguras, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${formattedRut}).\n\nNo tengo autorización para responder consultas sobre otros temas. Para dudas generales o nuevos requerimientos, contáctanos a rcv.informacion@gmail.com o al +56 9 8000 2400.`,
+      text: `Como asistente de Nydo Mallas, estoy facultado exclusivamente para responder información sobre las cotizaciones asociadas a su RUT (${formattedRut}).\n\nNo tengo autorización para responder consultas sobre otros temas. Para dudas generales o nuevos requerimientos, contáctanos a ${CONTACT_EMAIL} o al ${CONTACT_PHONE_DISPLAY}.`,
       isOutOfScope: true,
     };
   }

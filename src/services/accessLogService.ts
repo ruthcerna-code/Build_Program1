@@ -7,7 +7,7 @@ const INITIAL_LOGS: UserAccessLog[] = [
   {
     id: 'log-seed-1',
     userId: 'user-admin-1',
-    userEmail: 'rcv.informacion@gmail.com',
+    userEmail: 'nydo.mallas@gmail.com',
     userName: 'Administrador Central RCV',
     role: 'admin',
     connectedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),

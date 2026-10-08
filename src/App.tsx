@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Header, AppView } from './components/Header';
 import { HomeClientView } from './components/HomeClientView';
-import { QuoteMeshView } from './components/QuoteMeshView';
+import { GuidedQuoteView } from './components/GuidedQuoteView';
+import { LegalView } from './components/LegalView';
 import { SimpleQuotesView } from './components/SimpleQuotesView';
 import { ContactView } from './components/ContactView';
 import { SalesView } from './components/SalesView';
@@ -40,8 +41,10 @@ import {
 } from './services/quoteStorage';
 import { getCurrentUser, logoutUser, isUserAdmin, isInternalUser, syncUsersWithSupabase } from './services/authStorage';
 import { canSyncData, canViewQuotes, canViewSales, canManageUsers } from './services/permissions';
+import { clearGuidedDraft, hasUnsavedGuidedDraft } from './services/guidedQuoteDraft';
 import { CONTACT_PHONE_DISPLAY, CONTACT_EMAIL, CONTACT_COVERAGE, WHATSAPP_QUOTE_URL } from './constants/contact';
 import { recordUserAccessLog, syncAccessLogsWithSupabase } from './services/accessLogService';
+import { apiFetch } from './services/sessionApi';
 import {
   ShieldCheck,
   Phone,
@@ -52,13 +55,31 @@ import {
   Check
 } from 'lucide-react';
 
+function viewFromPath(pathname: string): AppView {
+  if (pathname.startsWith('/cotizar')) return 'quote_mesh';
+  if (pathname.startsWith('/contacto')) return 'contact';
+  if (pathname.startsWith('/privacidad')) return 'privacy';
+  if (pathname.startsWith('/terminos')) return 'terms';
+  return 'client';
+}
+
+function pathFromView(view: AppView): string | null {
+  if (view === 'quote_mesh') return '/cotizar';
+  if (view === 'contact') return '/contacto';
+  if (view === 'privacy') return '/privacidad';
+  if (view === 'terms') return '/terminos';
+  if (view === 'client') return '/';
+  return null;
+}
+
 export default function App() {
-  const [currentView, setCurrentView] = useState<AppView>('client');
+  const [currentView, setCurrentView] = useState<AppView>(() =>
+    typeof window === 'undefined' ? 'client' : viewFromPath(window.location.pathname)
+  );
   const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
   const [lastCreatedQuote, setLastCreatedQuote] = useState<QuoteRequest | null>(null);
   const [selectedQuoteForPortal, setSelectedQuoteForPortal] = useState<QuoteRequest | null>(null);
   const [editingQuoteFromPortal, setEditingQuoteFromPortal] = useState<QuoteRequest | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState<boolean>(false);
   const [isAssistantOpen, setIsAssistantOpen] = useState<boolean>(false);
 
@@ -99,6 +120,13 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isUserAdmin(currentUser)) return;
+    if (currentView === 'contact' || currentView === 'client') {
+      setCurrentView('admin');
+    }
+  }, [currentUser, currentView]);
+
   const handleOpenLogin = (mode: AuthMode = 'login') => {
     setLoginModalMode(mode);
     setIsLoginModalOpen(true);
@@ -110,6 +138,7 @@ export default function App() {
     }
     logoutUser();
     setCurrentUser(null);
+    setCurrentView('client');
     setAuthToast('Has cerrado sesión correctamente.');
     setTimeout(() => setAuthToast(null), 3500);
   };
@@ -119,12 +148,39 @@ export default function App() {
     recordUserAccessLog(user, 'login', `Inicio de sesión exitoso: ${user.fullName} (${user.role})`);
     setAuthToast(message);
     setTimeout(() => setAuthToast(null), 4500);
+    if (isUserAdmin(user)) {
+      setCurrentView('admin');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goToView = (view: AppView, options?: { force?: boolean }) => {
+    const leavingQuote =
+      currentView === 'quote_mesh' && view !== 'quote_mesh' && view !== 'privacy' && view !== 'terms';
+    if (!options?.force && leavingQuote && hasUnsavedGuidedDraft()) {
+      const ok = window.confirm(
+        'Tienes una solicitud sin enviar. Si sales ahora, se perderán las respuestas.'
+      );
+      if (!ok) return;
+      clearGuidedDraft();
+    }
+    setCurrentView(view);
+    const path = pathFromView(view);
+    if (path && window.location.pathname !== path) {
+      window.history.pushState({ view }, '', path);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleNavigateToQuoteMesh = () => {
-    setCurrentView('quote_mesh');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    goToView('quote_mesh');
   };
+
+  useEffect(() => {
+    const onPop = () => setCurrentView(viewFromPath(window.location.pathname));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // Load initial quotes and listen for updates
   useEffect(() => {
@@ -185,29 +241,6 @@ export default function App() {
     lastCreatedQuote ||
     null;
 
-  const handleQuoteCreated = (newQuote: QuoteRequest) => {
-    const updated = addQuoteRequest(newQuote);
-    setQuotes(updated);
-    setLastCreatedQuote(newQuote);
-    setSelectedQuoteForPortal(newQuote);
-    setShowSuccessModal(true);
-
-    // Record user connectivity and quote creation in Firestore database log
-    recordUserAccessLog(
-      currentUser || {
-        id: newQuote.clientEmail,
-        email: newQuote.clientEmail,
-        fullName: newQuote.clientName,
-        role: 'cliente',
-        passwordHash: '',
-        createdAt: new Date().toISOString(),
-      },
-      'quote_created',
-      `Cotización realizada: Folio ${newQuote.folio} (${newQuote.windows.length} ventanas, ${newQuote.totalAreaM2} m²)`,
-      newQuote.folio
-    );
-  };
-
   const handleSaveAdminQuote = (quoteId: string, details: AdminQuoteDetails) => {
     const updated = updateQuoteWithAdminDetails(quoteId, details);
     setQuotes(updated);
@@ -228,12 +261,6 @@ export default function App() {
   const handleViewClientQuoteScreen = (quote: QuoteRequest) => {
     setSelectedQuoteForPortal(quote);
     setCurrentView('received_quotes');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleGoToAdminFromSuccess = () => {
-    setShowSuccessModal(false);
-    setCurrentView('admin');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -287,6 +314,30 @@ export default function App() {
     setTimeout(() => setAuthToast(null), 3000);
   };
 
+  const handleSendQuoteEmail = async (
+    quoteId: string,
+    details?: { total?: number; notes?: string; adminQuote?: QuoteRequest['adminQuote'] }
+  ) => {
+    try {
+      const current = quotes.find((q) => q.id === quoteId);
+      const data = await apiFetch(`/api/quotes/${quoteId}/send-email`, {
+        method: 'POST',
+        body: JSON.stringify({
+          adminQuote: details?.adminQuote || current?.adminQuote,
+          total: details?.total,
+          notes: details?.notes,
+        }),
+      });
+      if (data.quote) {
+        setQuotes((prev) => prev.map((q) => (q.id === quoteId ? { ...q, ...data.quote } : q)));
+      }
+      setAuthToast(data.message || `Correo enviado.`);
+    } catch (err: any) {
+      setAuthToast(err?.message || 'No pudimos enviar el correo al cliente.');
+    }
+    setTimeout(() => setAuthToast(null), 7000);
+  };
+
   const handleUpdateNotes = (quoteId: string, notes: string, total?: number) => {
     if (typeof total === 'number') {
       setQuotes(updateQuoteTotalDirectly(quoteId, total, notes));
@@ -312,14 +363,7 @@ export default function App() {
       {/* Top Header with streamlined navigation views */}
       <Header
         currentView={currentView}
-        onNavigate={(view) => {
-          if (view === 'quote_mesh') {
-            handleNavigateToQuoteMesh();
-          } else {
-            setCurrentView(view);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }}
+        onNavigate={goToView}
         pendingQuotesCount={pendingQuotesCount}
         receivedQuotesCount={receivedQuotesCount}
         approvedQuotesCount={approvedQuotesCount}
@@ -336,18 +380,9 @@ export default function App() {
           <HomeClientView
             quotes={quotes}
             onGoToQuoteMesh={handleNavigateToQuoteMesh}
-            onGoToAdmin={() => {
-              setCurrentView('admin');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onGoToTechnicianOrders={() => {
-              setCurrentView('technician_orders');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onGoToAccessLogs={() => {
-              setCurrentView('admin');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onGoToAdmin={() => goToView('admin')}
+            onGoToTechnicianOrders={() => goToView('technician_orders')}
+            onGoToAccessLogs={() => goToView('admin')}
             onOpenAssistant={() => setIsAssistantOpen(true)}
             currentUser={currentUser}
             onRespondQuote={(quote) => {
@@ -357,15 +392,23 @@ export default function App() {
         )}
 
         {currentView === 'quote_mesh' && (
-          <QuoteMeshView
-            onQuoteCreated={handleQuoteCreated}
+          <GuidedQuoteView
             currentUser={currentUser}
-            onBackToHome={() => {
-              setCurrentView('client');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+            onBackToHome={() => goToView('client')}
+            onGoToPrivacy={() => goToView('privacy')}
+            onGoToTerms={() => goToView('terms')}
+            onSubmitted={(quote) => {
+              const current = getStoredQuotes();
+              if (!current.some((item) => item.id === quote.id)) {
+                setQuotes(addQuoteRequest(quote));
+              }
+              setLastCreatedQuote(quote);
             }}
           />
         )}
+
+        {currentView === 'privacy' && <LegalView kind="privacy" onBack={() => goToView('quote_mesh', { force: true })} />}
+        {currentView === 'terms' && <LegalView kind="terms" onBack={() => goToView('quote_mesh', { force: true })} />}
 
         {currentView === 'admin' && (
           !(isUserAdmin(currentUser) || (currentUser?.role === 'interno' && canViewQuotes(currentUser))) ? (
@@ -377,7 +420,7 @@ export default function App() {
                 Acceso Exclusivo para Usuario Administrador
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-                El usuario administrador es quien puede recepcionar las cotizaciones y pedidos técnicos. Inicia sesión con tus credenciales de administrador (ej: <strong>ruth.cerna@gmail.com</strong> o <strong>rcv.informacion@gmail.com</strong>).
+                El usuario administrador es quien puede recepcionar las cotizaciones y pedidos técnicos. Inicia sesión con la cuenta creada en administración (administradora: <strong>ruth.cerna@gmail.com</strong>).
               </p>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <button
@@ -411,14 +454,15 @@ export default function App() {
                 />
               )}
               <SimpleQuotesView
-                quotes={quotes}
+                quotes={quotes.filter((q) => q.status !== 'aceptada')}
                 currentUser={currentUser}
-                title="Recepción de cotizaciones"
+                title="CT recibida"
                 onUpdateStatus={handleUpdateStatus}
                 onUpdateNotes={handleUpdateNotes}
                 onDeleteQuote={handleSoftDelete}
                 onAcceptQuote={handleAcceptQuote}
                 onRegisterPayment={handleRegisterPayment}
+                onSendEmail={handleSendQuoteEmail}
                 toast={authToast}
               />
             </>
@@ -468,7 +512,25 @@ export default function App() {
           )
         )}
 
-        {currentView === 'contact' && <ContactView />}
+        {currentView === 'contact' && !isUserAdmin(currentUser) && <ContactView />}
+
+        {currentView === 'approved_quotes' &&
+          (isUserAdmin(currentUser) || (currentUser?.role === 'interno' && canViewQuotes(currentUser)) ? (
+            <SimpleQuotesView
+              quotes={quotes.filter((q) => q.status === 'aceptada')}
+              currentUser={currentUser}
+              title="CT Aceptadas"
+              variant="accepted"
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateNotes={handleUpdateNotes}
+              onDeleteQuote={handleSoftDelete}
+              onRegisterPayment={handleRegisterPayment}
+              onSendEmail={handleSendQuoteEmail}
+              toast={authToast}
+            />
+          ) : (
+            <p className="text-center py-16 text-slate-600">Solo el administrador ve las cotizaciones aceptadas.</p>
+          ))}
 
         {currentView === 'received_quotes' && (
           <SimpleQuotesView
@@ -495,7 +557,7 @@ export default function App() {
           (canManageUsers(currentUser) ? (
             <InternalUsersView />
           ) : (
-            <p className="text-center py-16 text-slate-600">Solo la administradora gestiona el equipo.</p>
+            <p className="text-center py-16 text-slate-600">Solo la administradora gestiona las cuentas.</p>
           ))}
 
         {currentView === 'client_portal' && (
@@ -527,6 +589,7 @@ export default function App() {
             if (updated) {
               setSelectedQuoteForPortal({ ...updated, adminQuote: details });
             }
+            void handleSendQuoteEmail(quoteId, { adminQuote: details, total: details.total, notes: details.adminNotes });
           }}
         />
       )}
@@ -607,7 +670,7 @@ export default function App() {
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <span className="text-lg font-black text-white tracking-tight">
-                  Mallas<span className="text-sky-400">Seguras</span>
+                  Nydo<span className="text-sky-400"> Mallas</span>
                 </span>
               </div>
               <p className="text-slate-400 max-w-md leading-relaxed">
@@ -630,7 +693,73 @@ export default function App() {
               </div>
             </div>
 
-            {isInternalUser(currentUser) ? (
+            {isUserAdmin(currentUser) ? (
+              <div className="space-y-2">
+                <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
+                  Operación
+                </span>
+                <ul className="space-y-2">
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView('admin');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors flex items-center gap-1.5"
+                    >
+                      <span>CT recibida</span>
+                      {pendingQuotesCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-bold text-[10px]">
+                          {pendingQuotesCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView('approved_quotes');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors flex items-center gap-1.5"
+                    >
+                      <span>CT Aceptadas</span>
+                      {approvedQuotesCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white font-bold text-[10px]">
+                          {approvedQuotesCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView('sales');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors"
+                    >
+                      Ventas
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentView('team');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="hover:text-white transition-colors"
+                    >
+                      Cuentas
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            ) : isInternalUser(currentUser) ? (
               <div className="space-y-2">
                 <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
                   Operación
@@ -648,25 +777,6 @@ export default function App() {
                       Inicio
                     </button>
                   </li>
-                  {isUserAdmin(currentUser) && (
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentView('admin');
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className="hover:text-white transition-colors flex items-center gap-1.5"
-                      >
-                        <span>Recepción</span>
-                        {pendingQuotesCount > 0 && (
-                          <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-bold text-[10px]">
-                            {pendingQuotesCount}
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  )}
                   <li>
                     <button
                       type="button"
@@ -698,7 +808,7 @@ export default function App() {
                       onClick={handleNavigateToQuoteMesh}
                       className="hover:text-white transition-colors"
                     >
-                      Pedir cotización
+                      Solicitar cotización
                     </button>
                   </li>
                   <li>
@@ -724,8 +834,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        setCurrentView('contact');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        goToView('contact');
                       }}
                       className="hover:text-white transition-colors"
                     >
@@ -760,7 +869,7 @@ export default function App() {
           </div>
 
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
-            <p>&copy; {new Date().getFullYear()} MallasSeguras &bull; Todos los derechos reservados.</p>
+            <p>&copy; {new Date().getFullYear()} Nydo Mallas &bull; Todos los derechos reservados.</p>
             <p>Mallas de seguridad para ventanas, balcones y terrazas</p>
           </div>
         </div>

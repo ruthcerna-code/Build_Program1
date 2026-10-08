@@ -1,18 +1,32 @@
 import { QuoteRequest, QuoteEmailDispatch } from '../types';
+import { CONTACT_PHONE_DISPLAY } from '../constants/contact';
+import {
+  FINISH_OPTIONS,
+  HEIGHT_OPTIONS,
+  LENGTH_OPTIONS,
+  SURFACE_OPTIONS,
+  TIMELINE_OPTIONS,
+  WORK_TYPE_OPTIONS,
+  labelOf,
+} from '../constants/guidedQuote';
+import {
+  displayHeightCm,
+  displayWidthCm,
+  formatAreaM2,
+  isBalconySurface,
+  itemTitle,
+} from '../utils/windowMeasures';
 
-export const COMPANY_NOTIFICATION_EMAIL = 'rcv.informacion@gmail.com';
+export const COMPANY_NOTIFICATION_EMAIL = 'nydo.mallas@gmail.com';
 
 /**
  * Generates the email subject for the formatted quote notice
  */
 export function generateFormattedQuoteSubject(
   quote: QuoteRequest,
-  recipient: 'company' | 'client'
+  _recipient: 'company' | 'client'
 ): string {
-  if (recipient === 'company') {
-    return `[NUEVA COTIZACIÓN EN CURSO #${quote.folio}] ${quote.clientName} - ${quote.windows.length} ventana(s) (${quote.clientCity})`;
-  }
-  return `[AVISO DE COTIZACIÓN] Solicitud #${quote.folio} Ingresada - MallasSeguras Chile`;
+  return `Solicitud de cotización ${quote.folio} recibida`;
 }
 
 /**
@@ -30,11 +44,12 @@ export function generateFormattedQuoteEmailText(
   const lines: string[] = [
     '============================================================',
     recipient === 'company'
-      ? '       MALLASSEGURAS CHILE - REGISTRO CENTRAL DE COTIZACIÓN'
-      : '       MALLASSEGURAS CHILE - AVISO DE COTIZACIÓN EN CURSO',
+      ? '       NYDO MALLAS - REGISTRO CENTRAL DE COTIZACIÓN'
+      : '       NYDO MALLAS - AVISO DE COTIZACIÓN EN CURSO',
     `                 NÚMERO DE FOLIO: ${quote.folio}`,
     '============================================================',
     '',
+    `Identificador: ${quote.id}`,
     `Fecha de Emisión: ${formattedDate}`,
     recipient === 'company'
       ? `Destinatario: Central de Operaciones (${COMPANY_NOTIFICATION_EMAIL})`
@@ -53,7 +68,7 @@ export function generateFormattedQuoteEmailText(
       '',
       '• NOTA SOBRE EL PRECIO:',
       'En esta instancia no se incluye ningún precio automático o referencial.',
-      'Nuestro equipo técnico de MallasSeguras evaluará las medidas de tus ventanas, el tipo de malla',
+      'Nuestro equipo técnico de Nydo Mallas evaluará las medidas de tus ventanas, el tipo de malla',
       'y las condiciones de instalación para formular tu presupuesto formal y coordinar la fecha definitiva.',
       ''
     );
@@ -77,46 +92,67 @@ export function generateFormattedQuoteEmailText(
     ` • Nombre del Titular   : ${quote.clientName}`,
     ` • Correo Electrónico   : ${quote.clientEmail}`,
     ` • Teléfono de Contacto : ${quote.clientPhone}`,
-    ` • Dirección Inmueble   : ${quote.clientAddress}`,
-    ` • Comuna / Ciudad      : ${quote.clientCity}`,
+    ` • Dirección Inmueble   : ${quote.guidedQuote?.regionName || quote.clientAddress}`,
+    ` • Comuna / Ciudad      : ${quote.guidedQuote?.commune || quote.clientCity}`,
     ` • Tipo de Propiedad    : ${quote.propertyType.toUpperCase()}`,
-    quote.clientComments ? ` • Observaciones        : "${quote.clientComments}"` : '',
+    quote.clientComments && !quote.guidedQuote ? ` • Observaciones        : "${quote.clientComments}"` : '',
     '',
+  );
+
+  if (quote.guidedQuote) {
+    const g = quote.guidedQuote;
+    const finish =
+      g.finishType === 'lacado_otros' && g.finishColor
+        ? `${labelOf(FINISH_OPTIONS, g.finishType)} (${g.finishColor})`
+        : labelOf(FINISH_OPTIONS, g.finishType);
+    lines.push(
+      '------------------------------------------------------------',
+      ' 2. RESPUESTAS DEL FORMULARIO',
+      '------------------------------------------------------------',
+      ` • Tipo de trabajo      : ${labelOf(WORK_TYPE_OPTIONS, g.workType)}`,
+      ` • Superficie           : ${labelOf(SURFACE_OPTIONS, g.surfaceType)}`,
+      ` • Longitud (rango)     : ${labelOf(LENGTH_OPTIONS, g.lengthRange)}`,
+      ` • Altura (rango)       : ${labelOf(HEIGHT_OPTIONS, g.heightRange)}`,
+      ` • Acabado              : ${finish}`,
+      ` • Plazo (preferencia)  : ${labelOf(TIMELINE_OPTIONS, g.timeline)}`,
+      ''
+    );
+  } else {
+    lines.push(
+      '------------------------------------------------------------',
+      ' 2. FECHAS Y HORARIOS TENTATIVOS DE INSTALACIÓN SOLICITADOS',
+      '------------------------------------------------------------',
+      ` • Opción Tentativa 1 (Preferente) : ${quote.tentativeDate1 || 'A coordinar'} a las ${quote.tentativeTime1 || '10:00'} hrs`,
+      ` • Opción Tentativa 2 (Alternativa): ${quote.tentativeDate2 || 'A coordinar'} a las ${quote.tentativeTime2 || '15:30'} hrs`,
+      ''
+    );
+  }
+
+  const balcony = isBalconySurface(quote.guidedQuote?.surfaceType || '');
+  lines.push(
     '------------------------------------------------------------',
-    ' 2. FECHAS Y HORARIOS TENTATIVOS DE INSTALACIÓN SOLICITADOS',
+    ` 3. DETALLE DE ${balcony ? 'PAÑOS' : 'VENTANAS'} Y MEDIDAS (${quote.windows.length} en total)`,
     '------------------------------------------------------------',
-    ` • Opción Tentativa 1 (Preferente) : ${quote.tentativeDate1 || 'A coordinar'} a las ${quote.tentativeTime1 || '10:00'} hrs`,
-    ` • Opción Tentativa 2 (Alternativa): ${quote.tentativeDate2 || 'A coordinar'} a las ${quote.tentativeTime2 || '15:30'} hrs`,
-    '',
-    '------------------------------------------------------------',
-    ` 3. DETALLE DE VENTANAS Y MEDIDAS INGRESADAS (${quote.windows.length} en total)`,
-    '------------------------------------------------------------'
+    ' Ventana o paño | Ubicación | Ancho (cm) | Alto (cm) | Superficie (m²)'
   );
 
   quote.windows.forEach((win, index) => {
-    const heightCm = Math.round(win.height * 100);
-    const widthCm = Math.round(win.width * 100);
-    const meshDesc =
-      win.meshType === 'monofilamento'
-        ? 'Monofilamento Nylon 0.80mm (Máxima Visibilidad & Estética)'
-        : 'Multifilamento Trenzado (Alta Densidad)';
-
+    const label = itemTitle(quote.guidedQuote?.surfaceType || '', index);
+    const widthCm = displayWidthCm(win);
+    const heightCm = displayHeightCm(win);
     lines.push(
-      ` [Ventana #${index + 1}] ${win.name}`,
-      `   - Dimensiones : ${win.height} m alto x ${win.width} m ancho (${heightCm} x ${widthCm} cm)`,
-      `   - Superficie  : ${win.area.toFixed(2)} m²`,
-      `   - Tipo Malla  : ${meshDesc}`,
-      win.notes ? `   - Notas       : ${win.notes}` : '   - Notas       : Sin observaciones',
-      ''
+      ` ${label} | ${win.name || '—'} | ${widthCm} | ${heightCm} | ${formatAreaM2(win.area)}`
     );
   });
+  lines.push('');
 
   lines.push(
     '------------------------------------------------------------',
     ' 4. ESTADO DE LA SOLICITUD',
     '------------------------------------------------------------',
-    ` • Cantidad Total de Ventanas : ${quote.windows.length} unidad(es)`,
-    ` • Superficie Total Solicitada: ${quote.totalAreaM2.toFixed(2)} m²`,
+    ` • Cantidad Total de ${balcony ? 'Paños' : 'Ventanas'} : ${quote.windows.length}`,
+    ` • Superficie Total Solicitada: ${formatAreaM2(quote.totalAreaM2)} m²`,
+    ' • Las medidas ingresadas son referenciales y deberán confirmarse antes de la instalación.',
     ' • Estado del Presupuesto     : EN PROCESO DE COTIZACIÓN (Sin precio previo emitido)',
     recipient === 'client'
       ? ' • Próximo Paso               : Un asesor técnico revisará tus medidas y te contactará para confirmar tu cotización formal.'
@@ -138,7 +174,7 @@ export function generateFormattedQuoteEmailText(
     '',
     recipient === 'company'
       ? 'Gestión: Accede a la plataforma para determinar el presupuesto y derivar al instalador.'
-      : 'Aviso: Gracias por cotizar con MallasSeguras Chile. Estamos procesando tu solicitud.'
+      : 'Aviso: Gracias por cotizar con Nydo Mallas. Estamos procesando tu solicitud.'
   );
 
   return lines.filter((line) => line !== undefined).join('\n');
@@ -161,9 +197,76 @@ export function buildGmailComposeUrl(
   return url;
 }
 
-/**
- * Creates the dispatch audit record
- */
+function formatCLP(amount: number) {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export function generatePricedQuoteSubject(quote: QuoteRequest): string {
+  return `Cotización ${quote.folio} - Nydo Mallas`;
+}
+
+export function generatePricedQuoteEmailText(
+  quote: QuoteRequest,
+  recipient: 'company' | 'client'
+): string {
+  const adminQuote = quote.adminQuote;
+  const total = adminQuote ? formatCLP(adminQuote.total) : 'A coordinar';
+  const greeting =
+    recipient === 'client'
+      ? `Estimado/a ${quote.clientName}:`
+      : `Copia interna. Presupuesto enviado a ${quote.clientName} <${quote.clientEmail}>.`;
+
+  const windowLines = (quote.windows || [])
+    .map((win, i) => {
+      const width = win.widthCm ?? Math.round((win.width || 0) * 100);
+      const height = win.heightCm ?? Math.round((win.height || 0) * 100);
+      return ` • ${win.name || `Ventana ${i + 1}`}: ${width} cm × ${height} cm (${formatAreaM2(win.area)} m²)`;
+    })
+    .join('\n');
+
+  const valueLines = adminQuote
+    ? [
+        ` • Malla y anclajes: ${formatCLP(adminQuote.meshTotalCost)}`,
+        ` • Perfiles y fijaciones: ${formatCLP(adminQuote.profilesAndFixingsCost)}`,
+        ` • Mano de obra e instalación: ${formatCLP(adminQuote.laborAndInstallCost)}`,
+        adminQuote.discountAmount > 0
+          ? ` • Descuento (${adminQuote.discountPercentage}%): -${formatCLP(adminQuote.discountAmount)}`
+          : '',
+        ` • TOTAL: ${total}`,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : ' • El importe se coordinará con el cliente.';
+
+  return [
+    greeting,
+    '',
+    `Folio ${quote.folio}. Presupuesto de mallas de seguridad.`,
+    `Ubicación: ${quote.guidedQuote?.commune || quote.clientCity || 'No indicada'}.`,
+    '',
+    'Medidas:',
+    windowLines || ' • Sin detalle de ventanas',
+    '',
+    'Valores:',
+    valueLines,
+    '',
+    adminQuote
+      ? `Garantía: ${adminQuote.warrantyYears} años. Tiempo estimado: ${adminQuote.estimatedTime}.`
+      : '',
+    adminQuote?.adminNotes ? `Observaciones: ${adminQuote.adminNotes}` : '',
+    '',
+    `Para confirmar o agendar, responde este correo o escribe al WhatsApp ${CONTACT_PHONE_DISPLAY}.`,
+    '',
+    'Equipo Nydo Mallas',
+  ]
+    .filter((line) => line !== undefined)
+    .join('\n');
+}
+
 export function createQuoteEmailDispatch(quote: QuoteRequest): QuoteEmailDispatch {
   return {
     toCompany: COMPANY_NOTIFICATION_EMAIL,

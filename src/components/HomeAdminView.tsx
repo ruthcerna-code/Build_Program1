@@ -113,13 +113,13 @@ export const HomeAdminView: React.FC<HomeAdminViewProps> = ({
             </h1>
 
             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-              Estás en el <strong>Home de Administración Central</strong> de MallasSeguras Chile. Desde este panel puedes recepcionar solicitudes de clientes, despachar presupuestos oficiales a sus correos, coordinar pedidos técnicos de instaladores y auditar la conectividad registrada en base de datos.
+              Estás en el <strong>Home de Administración Central</strong> de Nydo Mallas. Desde este panel puedes recepcionar solicitudes de clientes, despachar presupuestos oficiales a sus correos, coordinar pedidos técnicos de instaladores y auditar la conectividad registrada en base de datos.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-slate-400">
               <span className="flex items-center gap-1 text-slate-300">
                 <Mail className="w-3.5 h-3.5 text-sky-400" />
-                <span>{currentUser?.email || 'rcv.informacion@gmail.com'}</span>
+                <span>{currentUser?.email || 'ruth.cerna@gmail.com'}</span>
               </span>
               <span>&bull;</span>
               <span className="text-sky-300 font-semibold">

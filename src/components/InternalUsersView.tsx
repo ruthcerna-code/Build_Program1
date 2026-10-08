@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../services/sessionApi';
+import { upsertLocalStaffUser } from '../services/authStorage';
 
 interface InternalRow {
   id: string;
@@ -15,6 +16,7 @@ interface InternalRow {
 const emptyForm = {
   email: '',
   fullName: '',
+  password: '',
   active: true,
   viewQuotes: true,
   editQuotes: false,
@@ -54,6 +56,24 @@ export const InternalUsersView: React.FC = () => {
         body: JSON.stringify(form),
       });
       setMessage(data.message);
+      if (form.password.trim()) {
+        upsertLocalStaffUser({
+          id: data.user?.id || `int-${Date.now()}`,
+          email: form.email.trim().toLowerCase(),
+          passwordHash: form.password.trim(),
+          fullName: form.fullName.trim(),
+          role: 'interno',
+          createdAt: new Date().toISOString(),
+          active: form.active,
+          authProvider: 'password',
+          permissions: {
+            viewQuotes: form.viewQuotes,
+            editQuotes: form.editQuotes,
+            deleteQuotes: form.deleteQuotes,
+            viewSales: form.viewSales,
+          },
+        });
+      }
       setForm(emptyForm);
       await load();
     } catch (err: any) {
@@ -86,9 +106,10 @@ export const InternalUsersView: React.FC = () => {
   return (
     <section className="pb-16 max-w-3xl space-y-4">
       <div>
-        <h1 className="text-2xl font-black">Equipo interno</h1>
+        <h1 className="text-2xl font-black">Cuentas</h1>
         <p className="text-sm text-slate-500">
-          Autorizas un correo para entrar con su propia cuenta de Google. No se crea una cuenta de Google aquí.
+          Crea correo y contraseña para que esa persona ingrese al panel. No se usa Google. La única cuenta
+          administradora es ruth.cerna@gmail.com.
         </p>
       </div>
 
@@ -109,6 +130,15 @@ export const InternalUsersView: React.FC = () => {
           placeholder="Correo de la persona"
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
+          className="w-full rounded-xl border px-3 py-2"
+        />
+        <input
+          required
+          type="password"
+          placeholder="Contraseña para ingresar"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          minLength={4}
           className="w-full rounded-xl border px-3 py-2"
         />
         <label className="flex items-start gap-2 text-sm">

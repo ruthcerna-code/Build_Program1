@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { QuoteRequest } from '../types';
 import { formatCurrency } from '../services/quoteStorage';
+import { CONTACT_EMAIL, CONTACT_PHONE_DISPLAY } from '../constants/contact';
+import { CONTACT_INBOX_EMAIL } from '../constants/admin';
 
 interface EmailPreviewModalProps {
   quote: QuoteRequest;
@@ -39,7 +41,7 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
 
   // Prepare mailto link
   const emailSubject = encodeURIComponent(
-    `Cotización Oficial de Mallas de Seguridad ${quote.folio} - MallasSeguras`
+    `Cotización Oficial de Mallas de Seguridad ${quote.folio} - Nydo Mallas`
   );
   const emailBodyText = encodeURIComponent(
 `Estimado/a ${quote.clientName},
@@ -66,15 +68,14 @@ CONDICIONES:
 - Tiempo estimado de instalación: ${adminQuote.estimatedTime}.
 - Observaciones: ${adminQuote.adminNotes || 'Instalación limpia en seco sin dañar marcos existentes.'}
 
-Para agendar la visita o confirmar este presupuesto, responda a este correo o escríbanos al WhatsApp +56 9 8000 2400.
+Para agendar la visita o confirmar este presupuesto, responda a este correo o escríbanos al WhatsApp ${CONTACT_PHONE_DISPLAY}.
 
 Atentamente,
-Equipo Técnico MallasSeguras
+Equipo Técnico Nydo Mallas
 www.mallas-seguras.cl`
   );
 
-  const mailtoUrl = `mailto:${quote.clientEmail}?cc=rcv.informacion@gmail.com&subject=${emailSubject}&body=${emailBodyText}`;
-  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(quote.clientEmail)}&cc=rcv.informacion@gmail.com&su=${emailSubject}&body=${emailBodyText}`;
+  const mailtoUrl = `mailto:${quote.clientEmail}?subject=${emailSubject}&body=${emailBodyText}`;
 
   const handlePrint = () => {
     window.print();
@@ -147,7 +148,7 @@ www.mallas-seguras.cl`
             <div>
               <span className="text-slate-400 font-medium">De:</span>{' '}
               <strong className="text-slate-800">
-                MallasSeguras &lt;cotizaciones@mallas-seguras.cl&gt;
+                Nydo Mallas &lt;{CONTACT_EMAIL}&gt;
               </strong>
             </div>
             <span className="text-slate-400">{sentDate}</span>
@@ -161,13 +162,13 @@ www.mallas-seguras.cl`
           <div>
             <span className="text-slate-400 font-medium">Copia (CC Central):</span>{' '}
             <strong className="text-red-700 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
-              rcv.informacion@gmail.com
+              {CONTACT_INBOX_EMAIL}
             </strong>
           </div>
           <div>
             <span className="text-slate-400 font-medium">Asunto:</span>{' '}
             <span className="font-bold text-slate-900">
-              Cotización Formal Mallas de Seguridad #{quote.folio} - MallasSeguras
+              Cotización Formal Mallas de Seguridad #{quote.folio} - Nydo Mallas
             </span>
           </div>
         </div>
@@ -183,7 +184,7 @@ www.mallas-seguras.cl`
                 </div>
                 <div>
                   <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                    Mallas<span className="text-sky-600">Seguras</span>
+                    Nydo<span className="text-sky-600"> Mallas</span>
                   </h1>
                   <p className="text-xs text-slate-500 font-medium">
                     Presupuesto Oficial de Instalación
@@ -333,10 +334,10 @@ www.mallas-seguras.cl`
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                 <span className="inline-flex items-center gap-1.5 bg-emerald-500 text-slate-950 px-4 py-2 rounded-lg font-bold text-xs">
-                  <Phone className="w-3.5 h-3.5" /> WhatsApp Directo: +56 9 8000 2400
+                  <Phone className="w-3.5 h-3.5" /> WhatsApp Directo: {CONTACT_PHONE_DISPLAY}
                 </span>
                 <span className="inline-flex items-center gap-1.5 bg-slate-800 text-slate-200 px-4 py-2 rounded-lg font-medium text-xs border border-slate-700">
-                  <Mail className="w-3.5 h-3.5 text-sky-400" /> cotizaciones@mallas-seguras.cl
+                  <Mail className="w-3.5 h-3.5 text-sky-400" /> {CONTACT_EMAIL}
                 </span>
               </div>
             </div>
@@ -383,13 +384,11 @@ www.mallas-seguras.cl`
 
             <a
               id="link-open-mailto"
-              href={gmailUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-colors shadow-xs"
+              href={mailtoUrl}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white font-bold text-xs transition-colors shadow-xs"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Abrir en Gmail Web (con CC rcv.informacion@gmail.com)</span>
+              <span>Abrir en el correo</span>
             </a>
 
             <button

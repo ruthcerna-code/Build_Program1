@@ -1,23 +1,24 @@
 import type { Express, Request, Response } from 'express';
 import {
   CONTACT_TO_EMAIL,
-  GOOGLE_CLIENT_ID,
-  MAIL_FROM,
   RESEND_API_KEY,
   isPrincipalAdmin,
   missingServerConfig,
 } from './config';
 import {
+  authenticateWithPassword,
   createSessionToken,
   getSessionUser,
   requirePrincipalAdmin,
   requireSession,
   resolveRole,
   sessionToAccount,
-  verifyGoogleIdToken,
   type SessionUser,
 } from './session';
+import { hashPassword } from './passwords';
 import { requireAdminClient } from './supabaseAdmin';
+import { buildGuidedQuoteRecord, guidedQuoteToDbRow, validateGuidedQuote } from './guidedQuote';
+import { sendInboxEmail, sendQuoteRequestEmail } from './sendQuoteMail';
 
 const contactAttempts = new Map<string, number[]>();
 const syncLocks = new Set<string>();
@@ -85,6 +86,8 @@ function mapQuoteRow(row: any) {
     changeHistory: row.change_history || [],
     deletedAt: row.deleted_at,
     ownerEmail: row.owner_email || row.client_email,
+    quoteSource: row.quote_source || undefined,
+    guidedQuote: row.guided_quote || undefined,
   };
 }
 
@@ -108,7 +111,7 @@ export function mountApiRoutes(app: Express) {
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
-      googleConfigured: !!GOOGLE_CLIENT_ID,
+      googleConfigured: false,
       supabaseAdmin: missingServerConfig().filter((x) => x.includes('SUPABASE')).length === 0,
       mailConfigured: !!RESEND_API_KEY,
       missing: missingServerConfig(),
@@ -118,18 +121,16 @@ export function mountApiRoutes(app: Express) {
 
   app.get('/api/auth/config', (_req, res) => {
     res.json({
-      googleClientId: GOOGLE_CLIENT_ID || null,
-      googleReady: !!GOOGLE_CLIENT_ID,
+      googleClientId: null,
+      googleReady: false,
     });
   });
 
-  app.post('/api/auth/google', async (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     try {
-      const idToken = String(req.body?.idToken || '').trim();
-      if (!idToken) {
-        return res.status(400).json({ error: 'No recibimos la confirmación de Google.' });
-      }
-      const sessionUser = await verifyGoogleIdToken(idToken);
+      const email = String(req.body?.email || '').trim();
+      const password = String(req.body?.password || '');
+      const sessionUser = await authenticateWithPassword(email, password);
       if (sessionUser.active === false) {
         return res.status(403).json({ error: 'Tu acceso está desactivado.' });
       }
@@ -145,7 +146,7 @@ export function mountApiRoutes(app: Express) {
       });
     } catch (err: any) {
       return res.status(401).json({
-        error: err?.message || 'No pudimos validar tu cuenta de Google.',
+        error: err?.message || 'Correo o contraseña incorrectos.',
       });
     }
   });
@@ -154,6 +155,119 @@ export function mountApiRoutes(app: Express) {
     const current = getSessionUser(req)!;
     const refreshed = await resolveRole(current.email, current.name);
     res.json({ user: sessionToAccount(refreshed) });
+  });
+
+  app.post('/api/quotes/guided', async (req, res) => {
+    try {
+      const ip = clientIp(req);
+      if (tooManyContact(ip)) {
+        return res.status(429).json({
+          error: 'Enviaste varias solicitudes seguidas. Espera unos minutos e intenta de nuevo.',
+        });
+      }
+      const error = validateGuidedQuote(req.body || {});
+      if (error) return res.status(400).json({ error });
+
+      const db = requireAdminClient();
+      const ownerEmail = String(req.body?.email || '').trim().toLowerCase();
+      const ownerName = String(req.body?.name || '').trim();
+      const quote = buildGuidedQuoteRecord(req.body || {}, ownerEmail, ownerName);
+      const { data: existing } = await db.from('quotes').select('*').eq('id', quote.id).maybeSingle();
+      if (existing) {
+        return res.json({ quote: mapQuoteRow(existing), message: 'Solicitud ya registrada.' });
+      }
+
+      const row = guidedQuoteToDbRow(quote);
+      const { data, error: insertError } = await db.from('quotes').insert(row).select('*').single();
+      if (insertError) {
+        const fallback = { ...row } as Record<string, unknown>;
+        delete fallback.guided_quote;
+        delete fallback.quote_source;
+        const retry = await db.from('quotes').insert(fallback).select('*').single();
+        if (retry.error) return res.status(400).json({ error: retry.error.message });
+        markContact(ip);
+        const mail = await sendQuoteRequestEmail(quote);
+        return res.json({
+          quote: mapQuoteRow(retry.data),
+          message: 'Solicitud guardada.',
+          mailSent: mail.sent,
+          mailError: mail.error || null,
+        });
+      }
+      markContact(ip);
+      const mail = await sendQuoteRequestEmail(quote);
+      res.json({
+        quote: mapQuoteRow(data),
+        message: 'Solicitud guardada.',
+        mailSent: mail.sent,
+        mailError: mail.error || null,
+      });
+    } catch (err: any) {
+      res.status(503).json({ error: err?.message || 'No pudimos guardar la solicitud.' });
+    }
+  });
+
+  app.post('/api/quotes/:id/send-email', requireSession, async (req, res) => {
+    try {
+      const user = getSessionUser(req)!;
+      if (!canEditQuotes(user)) {
+        return res.status(403).json({ error: 'No tienes permiso para enviar cotizaciones.' });
+      }
+      const db = requireAdminClient();
+      const { data: existing, error: findError } = await db
+        .from('quotes')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+      if (findError || !existing) {
+        return res.status(404).json({ error: 'No encontramos esa cotización.' });
+      }
+      const quote = mapQuoteRow(existing);
+      if (req.body?.adminQuote && typeof req.body.adminQuote === 'object') {
+        quote.adminQuote = { ...(quote.adminQuote || {}), ...req.body.adminQuote };
+      }
+      if (typeof req.body?.total === 'number') {
+        quote.adminQuote = {
+          ...(quote.adminQuote || {
+            pricePerM2: 0,
+            meshTotalCost: req.body.total,
+            profilesAndFixingsCost: 0,
+            laborAndInstallCost: 0,
+            discountPercentage: 0,
+            discountAmount: 0,
+            subtotal: req.body.total,
+            includeTax: false,
+            taxAmount: 0,
+            warrantyYears: 2,
+            estimatedTime: '2 a 3 horas',
+            adminNotes: '',
+          }),
+          total: req.body.total,
+          subtotal: req.body.total,
+        };
+      }
+      if (typeof req.body?.notes === 'string' && quote.adminQuote) {
+        quote.adminQuote.adminNotes = req.body.notes;
+      }
+      const mail = await sendQuoteRequestEmail(quote, quote.adminQuote ? 'priced' : 'request');
+      if (!mail.sent) {
+        return res.status(502).json({ error: mail.error || 'No pudimos enviar el correo al cliente.' });
+      }
+      const sentAt = new Date().toISOString();
+      const adminQuote = quote.adminQuote
+        ? { ...quote.adminQuote, sentAt, sentToEmail: quote.clientEmail }
+        : quote.adminQuote;
+      if (adminQuote) {
+        await db.from('quotes').update({ admin_quote: adminQuote }).eq('id', quote.id);
+      }
+      res.json({
+        quote: { ...quote, adminQuote },
+        message: `Enviamos un correo a nydo.mallas@gmail.com y otro a ${quote.clientEmail}.`,
+        mailSent: true,
+      });
+    } catch (err: any) {
+      res.status(503).json({ error: err?.message || 'No pudimos enviar el correo.' });
+    }
   });
 
   app.get('/api/quotes', requireSession, async (req, res) => {
@@ -216,7 +330,17 @@ export function mountApiRoutes(app: Express) {
 
       const { data, error } = await db.from('quotes').update(row).eq('id', req.params.id).select('*').single();
       if (error) return res.status(400).json({ error: error.message });
-      res.json({ quote: mapQuoteRow(data), message: 'Cambios guardados.' });
+      const quote = mapQuoteRow(data);
+      if (patch.sendEmail) {
+        const mail = await sendQuoteRequestEmail(quote, quote.adminQuote ? 'priced' : 'request');
+        return res.json({
+          quote,
+          message: mail.sent ? 'Cambios guardados y correo enviado al cliente.' : 'Cambios guardados.',
+          mailSent: mail.sent,
+          mailError: mail.error || null,
+        });
+      }
+      res.json({ quote, message: 'Cambios guardados.' });
     } catch (err: any) {
       res.status(503).json({ error: err?.message || 'No pudimos guardar los cambios.' });
     }
@@ -358,6 +482,7 @@ export function mountApiRoutes(app: Express) {
       const user = getSessionUser(req)!;
       const email = String(req.body?.email || '').trim().toLowerCase();
       const fullName = String(req.body?.fullName || '').trim();
+      const password = String(req.body?.password || '').trim();
       if (!email.includes('@') || !fullName) {
         return res.status(400).json({ error: 'Necesitamos nombre y un correo válido.' });
       }
@@ -365,8 +490,13 @@ export function mountApiRoutes(app: Express) {
         return res.status(400).json({ error: 'Esa cuenta ya es la administradora principal.' });
       }
       const db = requireAdminClient();
-      const row = {
-        id: `int-${Date.now()}`,
+      const { data: existing } = await db.from('internal_users').select('*').eq('email', email).maybeSingle();
+      if (!existing && password.length < 4) {
+        return res.status(400).json({ error: 'Asigna una contraseña de al menos 4 caracteres.' });
+      }
+      const passwordHash = password ? hashPassword(password) : existing?.password_hash;
+      const row: Record<string, unknown> = {
+        id: existing?.id || `int-${Date.now()}`,
         email,
         full_name: fullName,
         active: req.body?.active !== false,
@@ -375,9 +505,32 @@ export function mountApiRoutes(app: Express) {
         can_delete_quotes: !!req.body?.deleteQuotes,
         can_view_sales: !!req.body?.viewSales,
         created_by: user.email,
+        updated_at: new Date().toISOString(),
       };
-      const { data, error } = await db.from('internal_users').upsert(row, { onConflict: 'email' }).select('*').single();
+      if (passwordHash) row.password_hash = passwordHash;
+
+      let { data, error } = await db.from('internal_users').upsert(row, { onConflict: 'email' }).select('*').single();
+      if (error && String(error.message || '').includes('password_hash')) {
+        const fallback = { ...row };
+        delete fallback.password_hash;
+        const retry = await db.from('internal_users').upsert(fallback, { onConflict: 'email' }).select('*').single();
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) return res.status(400).json({ error: error.message });
+
+      if (passwordHash) {
+        await db.from('app_users').upsert(
+          {
+            id: existing?.id || row.id,
+            email,
+            password_hash: passwordHash,
+            full_name: fullName,
+            role: 'interno',
+          },
+          { onConflict: 'email' }
+        );
+      }
       res.json({ user: data, message: 'Cuenta interna guardada.' });
     } catch (err: any) {
       res.status(503).json({ error: err?.message || 'No pudimos guardar el usuario.' });
@@ -408,33 +561,15 @@ export function mountApiRoutes(app: Express) {
           error: 'Completa nombre, un correo válido, asunto y mensaje.',
         });
       }
-      if (!RESEND_API_KEY) {
-        return res.status(503).json({
-          error:
-            'El envío de correo aún no está configurado. Falta RESEND_API_KEY en el servidor. Tu texto no se perdió: puedes copiarlo e intentar más tarde.',
-        });
-      }
-
-      const sendRes = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: MAIL_FROM,
-          to: [CONTACT_TO_EMAIL],
-          reply_to: email,
-          subject: `[Contáctanos] ${subject}`,
-          text: `Nombre: ${name}\nCorreo: ${email}\nTeléfono: ${phone || 'No indicado'}\n\n${message}`,
-        }),
-      });
-
-      if (!sendRes.ok) {
-        const detail = await sendRes.text();
+      const mail = await sendInboxEmail(
+        CONTACT_TO_EMAIL,
+        `[Contáctanos] ${subject}`,
+        `Nombre: ${name}\nCorreo: ${email}\nTeléfono: ${phone || 'No indicado'}\n\n${message}`,
+        email
+      );
+      if (!mail.sent) {
         return res.status(502).json({
-          error: 'El servicio de correo no aceptó el envío. Intenta de nuevo en unos minutos.',
-          detail: detail.slice(0, 180),
+          error: mail.error || 'El servicio de correo no aceptó el envío. Intenta de nuevo en unos minutos.',
         });
       }
 

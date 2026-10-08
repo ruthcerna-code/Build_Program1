@@ -1,4 +1,4 @@
-# Configuración de MallasSeguras
+# Configuración de Nydo Mallas
 
 La administradora principal es **ruth.cerna@gmail.com**. El registro público nunca crea otra cuenta administradora.
 

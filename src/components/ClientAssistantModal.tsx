@@ -58,7 +58,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
     const count = matchedQuotes.length;
 
     let initialText =
-      'Hola, soy el asistente de MallasSeguras. Puedo responder sobre visitas de cotización, plazos de instalación y cambio de mallas.\n\n';
+      'Hola, soy el asistente de Nydo Mallas. Puedo responder sobre visitas de cotización, plazos de instalación y cambio de mallas.\n\n';
 
     if (count > 0) {
       const main = matchedQuotes[0];
@@ -161,7 +161,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
-                  Asistente MallasSeguras
+                  Asistente Nydo Mallas
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30">
                     <Sparkles className="w-2.5 h-2.5 mr-1" />
                     Cliente

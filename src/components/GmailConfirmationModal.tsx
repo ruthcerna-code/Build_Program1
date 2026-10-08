@@ -102,7 +102,7 @@ export const GmailConfirmationModal: React.FC<GmailConfirmationModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-sky-200 mt-0.5">
-                Folio <span className="font-mono font-bold text-white bg-white/10 px-1.5 py-0.5 rounded-sm">{quote.folio}</span> &bull; Solicitud enviada a <strong className="text-white">rcv.informacion@gmail.com</strong> y aviso de cotización a <strong className="text-white">{quote.clientEmail}</strong>
+                Folio <span className="font-mono font-bold text-white bg-white/10 px-1.5 py-0.5 rounded-sm">{quote.folio}</span> &bull; Solicitud enviada a <strong className="text-white">nydo.mallas@gmail.com</strong> y aviso de cotización a <strong className="text-white">{quote.clientEmail}</strong>
               </p>
             </div>
           </div>
@@ -281,7 +281,7 @@ export const GmailConfirmationModal: React.FC<GmailConfirmationModalProps> = ({
                     Envío Directo desde Gmail Web
                   </h5>
                   <p className="text-slate-500 mt-0.5">
-                    Abre el correo pre-cargado con <strong>Para: rcv.informacion@gmail.com</strong> y <strong>CC: {quote.clientEmail}</strong> sin precio.
+                    Abre el correo pre-cargado con <strong>Para: nydo.mallas@gmail.com</strong> y <strong>CC: {quote.clientEmail}</strong> sin precio.
                   </p>
                 </div>
 
@@ -352,7 +352,7 @@ export const GmailConfirmationModal: React.FC<GmailConfirmationModalProps> = ({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Central Empresa (rcv.informacion@gmail.com)
+                    Central Empresa (nydo.mallas@gmail.com)
                   </button>
                 </div>
               </div>
