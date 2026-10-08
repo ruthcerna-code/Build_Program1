@@ -1,4 +1,4 @@
-import { FORMSUBMIT_COMPANY_ID, MAIL_FROM, QUOTE_COPY_EMAIL, RESEND_API_KEY, SITE_URL } from './config';
+import { ADMIN_EMAIL, FORMSUBMIT_COMPANY_ID, MAIL_FROM, QUOTE_COPY_EMAIL, RESEND_API_KEY, SITE_URL } from './config';
 import {
   generateFormattedQuoteEmailText,
   generateFormattedQuoteSubject,
@@ -97,6 +97,9 @@ async function postCompanyInboxEmail(
     }),
   });
   const body = await sendRes.text();
+  if (/<!doctype|just a moment|cf-ray|checking your browser/i.test(body)) {
+    return { sent: false, error: 'El envío a nydo.mallas@gmail.com quedó bloqueado. Reenviamos a la administradora.' };
+  }
   let parsed: { success?: string; message?: string } = {};
   try {
     parsed = JSON.parse(body);
@@ -104,6 +107,9 @@ async function postCompanyInboxEmail(
     parsed = { message: body.slice(0, 180) };
   }
   const message = String(parsed.message || '');
+  if (/<!doctype|just a moment/i.test(message)) {
+    return { sent: false, error: 'El envío a nydo.mallas@gmail.com quedó bloqueado. Reenviamos a la administradora.' };
+  }
   const activated = parsed.success === 'true' || /activated|successfully/i.test(message);
   const needsActivation = /activation|activ/i.test(message);
   if (activated || needsActivation) {
@@ -129,7 +135,20 @@ export async function sendInboxEmail(
 
   const companyInbox = (QUOTE_COPY_EMAIL || 'nydo.mallas@gmail.com').toLowerCase();
   if (destination === companyInbox) {
-    return postCompanyInboxEmail(destination, subject, text, html, replyTo);
+    const formSubmit = await postCompanyInboxEmail(destination, subject, text, html, replyTo);
+    if (formSubmit.sent) return formSubmit;
+    const adminTo = (ADMIN_EMAIL || '').toLowerCase();
+    if (adminTo && adminTo !== destination) {
+      const copy = await postResendEmail(
+        adminTo,
+        subject,
+        `Copia de mensaje para ${destination}. El envío directo a ese buzón no está disponible con el correo de prueba.\n\n${text}`,
+        replyTo,
+        html
+      );
+      if (copy.sent) return { sent: true };
+    }
+    return formSubmit;
   }
   return { sent: false, error: resend.error };
 }

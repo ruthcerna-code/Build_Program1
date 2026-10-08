@@ -576,8 +576,11 @@ export function mountApiRoutes(app: Express) {
         email
       );
       if (!mail.sent) {
+        const raw = String(mail.error || '');
         return res.status(502).json({
-          error: mail.error || 'El servicio de correo no aceptó el envío. Intenta de nuevo en unos minutos.',
+          error: /<!doctype|<html|just a moment/i.test(raw)
+            ? 'No pudimos enviar el mensaje. Intenta de nuevo en unos minutos.'
+            : raw || 'El servicio de correo no aceptó el envío. Intenta de nuevo en unos minutos.',
         });
       }
 
