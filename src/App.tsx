@@ -333,7 +333,9 @@ export default function App() {
       }
       setAuthToast(data.message || `Correo enviado.`);
     } catch (err: any) {
-      setAuthToast(err?.message || 'No pudimos enviar el correo al cliente.');
+      const message = err?.message || 'No pudimos enviar el correo al cliente.';
+      setAuthToast(message);
+      throw err;
     }
     setTimeout(() => setAuthToast(null), 7000);
   };

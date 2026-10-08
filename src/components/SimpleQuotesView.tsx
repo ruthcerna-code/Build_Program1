@@ -18,7 +18,7 @@ interface SimpleQuotesViewProps {
   onDeleteQuote?: (quoteId: string) => void;
   onAcceptQuote?: (quoteId: string) => void;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
-  onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void;
+  onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void | Promise<void>;
   toast?: string | null;
 }
 

@@ -249,7 +249,13 @@ export function mountApiRoutes(app: Express) {
       if (typeof req.body?.notes === 'string' && quote.adminQuote) {
         quote.adminQuote.adminNotes = req.body.notes;
       }
-      const mail = await sendQuoteRequestEmail(quote, quote.adminQuote ? 'priced' : 'request');
+      const kind = quote.adminQuote && Number(quote.adminQuote.total) > 0 ? 'priced' : 'request';
+      if (kind !== 'priced') {
+        return res.status(400).json({
+          error: 'Ingresa el importe en pesos antes de enviar el correo con precio al cliente.',
+        });
+      }
+      const mail = await sendQuoteRequestEmail(quote, 'priced');
       if (!mail.sent) {
         return res.status(502).json({ error: mail.error || 'No pudimos enviar el correo al cliente.' });
       }
@@ -258,11 +264,13 @@ export function mountApiRoutes(app: Express) {
         ? { ...quote.adminQuote, sentAt, sentToEmail: quote.clientEmail }
         : quote.adminQuote;
       if (adminQuote) {
-        await db.from('quotes').update({ admin_quote: adminQuote }).eq('id', quote.id);
+        await db.from('quotes').update({ admin_quote: adminQuote, status: 'cotizada' }).eq('id', quote.id);
       }
       res.json({
-        quote: { ...quote, adminQuote },
-        message: `Enviamos un correo a nydo.mallas@gmail.com y otro a ${quote.clientEmail}.`,
+        quote: { ...quote, adminQuote, status: 'cotizada' },
+        message: mail.error
+          ? mail.error
+          : `Enviamos la cotización con precio a ${quote.clientEmail}.`,
         mailSent: true,
       });
     } catch (err: any) {

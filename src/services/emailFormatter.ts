@@ -228,11 +228,17 @@ export function generatePricedQuoteEmailText(
     })
     .join('\n');
 
+  const hasBreakdown = Boolean(
+    adminQuote &&
+      (adminQuote.profilesAndFixingsCost > 0 ||
+        adminQuote.laborAndInstallCost > 0 ||
+        (adminQuote.meshTotalCost > 0 && adminQuote.meshTotalCost !== adminQuote.total))
+  );
   const valueLines = adminQuote
     ? [
-        ` • Malla y anclajes: ${formatCLP(adminQuote.meshTotalCost)}`,
-        ` • Perfiles y fijaciones: ${formatCLP(adminQuote.profilesAndFixingsCost)}`,
-        ` • Mano de obra e instalación: ${formatCLP(adminQuote.laborAndInstallCost)}`,
+        hasBreakdown ? ` • Malla y anclajes: ${formatCLP(adminQuote.meshTotalCost)}` : '',
+        hasBreakdown ? ` • Perfiles y fijaciones: ${formatCLP(adminQuote.profilesAndFixingsCost)}` : '',
+        hasBreakdown ? ` • Mano de obra e instalación: ${formatCLP(adminQuote.laborAndInstallCost)}` : '',
         adminQuote.discountAmount > 0
           ? ` • Descuento (${adminQuote.discountPercentage}%): -${formatCLP(adminQuote.discountAmount)}`
           : '',
