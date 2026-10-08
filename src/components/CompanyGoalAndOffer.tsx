@@ -512,13 +512,21 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
 
         {onOpenAssistant && (
           <p className="text-[11px] text-slate-500 text-center">
-            ¿Ya cotizaste?{' '}
+            ¿Dudas?{' '}
             <button
               type="button"
               onClick={onOpenAssistant}
               className="text-sky-400 hover:text-sky-300 font-semibold underline cursor-pointer"
             >
-              Consulta el estado con tu RUT
+              Preguntas frecuentes
+            </button>
+            {' · '}
+            <button
+              type="button"
+              onClick={onOpenAssistant}
+              className="text-sky-400 hover:text-sky-300 font-semibold underline cursor-pointer"
+            >
+              Consulta por RUT
             </button>
           </p>
         )}

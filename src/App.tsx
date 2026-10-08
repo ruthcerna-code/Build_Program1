@@ -486,7 +486,10 @@ export default function App() {
         onSelectQuoteToView={(q) => handleViewClientQuoteScreen(q)}
       />
 
-      {(currentView === 'client_portal' || currentView === 'received_quotes') &&
+      {(currentView === 'client' ||
+        currentView === 'quote_mesh' ||
+        currentView === 'client_portal' ||
+        currentView === 'received_quotes') &&
         !isUserAdmin(currentUser) && (
         <ClientAssistantFloatingButton
           onClick={() => setIsAssistantOpen(true)}
@@ -496,7 +499,7 @@ export default function App() {
                 ? q.clientRut === currentUser.rut
                 : currentUser?.email
                 ? q.clientEmail.toLowerCase() === currentUser.email.toLowerCase()
-                : true
+                : false
             ).length
           }
         />
@@ -643,7 +646,7 @@ export default function App() {
                       onClick={() => setIsAssistantOpen(true)}
                       className="hover:text-white transition-colors"
                     >
-                      Ya cotizaste? Consulta por RUT
+                      Preguntas frecuentes / consulta por RUT
                     </button>
                   </li>
                 </ul>

@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { matchFaqAnswer } from './src/constants/faqAssistant';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,16 +33,26 @@ app.post('/api/assistant/chat', async (req, res) => {
   try {
     const { rut, query, quotes = [], history = [] } = req.body;
 
-    if (!rut || typeof rut !== 'string' || !rut.trim()) {
-      return res.status(400).json({
-        error: 'Debe proporcionar un RUT para consultar al asistente.',
-        reply: 'Por favor ingrese su RUT chileno para consultar información sobre sus cotizaciones.',
-      });
-    }
-
     if (!query || typeof query !== 'string' || !query.trim()) {
       return res.status(400).json({
         error: 'Debe ingresar una pregunta o mensaje.',
+      });
+    }
+
+    const faq = matchFaqAnswer(query);
+    if (faq) {
+      return res.json({
+        reply: faq.answer,
+        isOutOfScope: false,
+        faqId: faq.id,
+      });
+    }
+
+    if (!rut || typeof rut !== 'string' || !rut.trim()) {
+      return res.json({
+        reply:
+          'Puedo responder sobre visitas de cotización, plazos de instalación y cambio de mallas. Si ya cotizaste, ingresa tu RUT para ver el estado de tu solicitud.',
+        isOutOfScope: false,
       });
     }
 

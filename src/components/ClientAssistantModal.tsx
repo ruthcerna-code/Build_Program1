@@ -21,6 +21,7 @@ import {
 import { QuoteRequest, UserAccount } from '../types';
 import { cleanRut, formatRut, matchesRut } from '../utils/rutUtils';
 import { askClientAssistant, AssistantMessage } from '../services/assistantService';
+import { FAQ_ITEMS } from '../constants/faqAssistant';
 
 interface ClientAssistantModalProps {
   isOpen: boolean;
@@ -37,10 +38,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
   currentUser,
   onSelectQuoteToView,
 }) => {
-  // Client RUT state
-  const defaultRut =
-    currentUser?.rut ||
-    (currentUser?.email === 'ruth.cerna@gmail.com' ? '14.582.910-K' : '14.582.910-K');
+  const defaultRut = currentUser?.rut || '';
 
   const [inputRut, setInputRut] = useState<string>(defaultRut);
   const [activeRut, setActiveRut] = useState<string>(defaultRut);
@@ -59,14 +57,16 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
     const formatted = formatRut(activeRut);
     const count = matchedQuotes.length;
 
-    let initialText = `¡Hola! Soy tu **Asistente Oficial de Cotizaciones de MallasSeguras**.\n\n`;
+    let initialText =
+      'Hola, soy el asistente de MallasSeguras. Puedo responder sobre visitas de cotización, plazos de instalación y cambio de mallas.\n\n';
 
     if (count > 0) {
       const main = matchedQuotes[0];
-      initialText += `He verificado tu RUT **${formatted}** y encontré **${count} cotización(es)** registrada(s) a nombre de **${main.clientName}**.\n\n`;
-      initialText += `Recuerda: Estoy facultado **únicamente para responder sobre tus cotizaciones** (estado, presupuesto, fechas de instalación, medidas o datos de tu técnico).\n\n¿En qué te puedo ayudar hoy?`;
+      initialText += `También encontré **${count} cotización(es)** para el RUT **${formatted}** de **${main.clientName}**. Pregúntame por el estado, el presupuesto o la instalación.`;
+    } else if (formatted) {
+      initialText += `No hay cotizaciones para el RUT **${formatted}**. Puedes preguntar por las dudas frecuentes o revisar el RUT.`;
     } else {
-      initialText += `Actualmente tu RUT activo es **${formatted || 'sin ingresar'}**, pero **no encontramos cotizaciones registradas** bajo este RUT.\n\nPor favor verifica tu RUT ingresándolo arriba o selecciona uno de los RUTs de prueba para explorar tus cotizaciones.`;
+      initialText += 'Elige una pregunta frecuente o, si ya cotizaste, ingresa tu RUT.';
     }
 
     setMessages([
@@ -137,12 +137,8 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
   };
 
   const quickQuestions = [
-    '¿Cuál es el estado de mi cotización?',
-    '¿Cuándo viene el técnico a instalar?',
-    '¿Cuánto es el total a pagar y qué incluye?',
-    '¿Qué medidas y tipo de malla tienen mis ventanas?',
-    '¿Quién es mi técnico instalador asignado?',
-    '¿Qué garantía tienen mis mallas de seguridad?',
+    ...FAQ_ITEMS.map((item) => item.question),
+    ...(matchedQuotes.length > 0 ? ['¿Cuál es el estado de mi cotización?'] : []),
   ];
 
   return (
@@ -165,7 +161,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
-                  Asistente de Cotizaciones por RUT
+                  Asistente MallasSeguras
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-400/30">
                     <Sparkles className="w-2.5 h-2.5 mr-1" />
                     Cliente
@@ -173,7 +169,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
                 </h3>
               </div>
               <p className="text-[11px] text-slate-300">
-                Responde exclusivamente en función a las cotizaciones solicitadas por tu RUT
+                Visitas, plazos, cambio de mallas y consulta de tu cotización
               </p>
             </div>
           </div>
@@ -193,7 +189,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
               <ShieldCheck className="w-4 h-4 text-sky-600" />
-              <span>RUT del Cliente Consultante:</span>
+              <span>Si ya cotizaste, ingresa tu RUT:</span>
             </label>
 
             <div className="flex items-center gap-2 flex-1 max-w-xs">
@@ -214,33 +210,6 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
             </div>
           </div>
 
-          {/* Quick-fill chips for testing seeded RUTs */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-1">
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-              RUTs disponibles:
-            </span>
-            {[
-              { name: 'Ruth Cerna', rut: '14.582.910-K' },
-              { name: 'Camila Morales', rut: '18.234.567-2' },
-              { name: 'Daniela Valenzuela', rut: '19.456.789-8' },
-              { name: 'Ignacio Riquelme', rut: '16.789.012-3' },
-            ].map((seed) => (
-              <button
-                key={seed.rut}
-                type="button"
-                onClick={() => handleApplyRut(seed.rut)}
-                className={`px-2 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer ${
-                  matchesRut(activeRut, seed.rut)
-                    ? 'bg-sky-600 text-white font-bold shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
-                }`}
-              >
-                {seed.name} ({seed.rut})
-              </button>
-            ))}
-          </div>
-
-          {/* Real-time matched quote mini card */}
           {matchedQuotes.length > 0 ? (
             <div className="bg-white rounded-2xl p-2.5 border border-sky-200 shadow-2xs flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2">
@@ -256,14 +225,14 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
                 Cliente: {matchedQuotes[0].clientName}
               </span>
             </div>
-          ) : (
+          ) : activeRut ? (
             <div className="bg-amber-50 rounded-2xl p-2.5 border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                No se encontraron cotizaciones para el RUT <strong>{formatRut(activeRut)}</strong>. El asistente responderá informando la falta de cotizaciones para este RUT.
+                No hay cotizaciones para el RUT <strong>{formatRut(activeRut)}</strong>. Igual puedes preguntar por visitas, plazos o cambio de mallas.
               </span>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Chat Thread Area */}
@@ -371,7 +340,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder={`Pregunta sobre las cotizaciones del RUT ${formatRut(activeRut)}...`}
+              placeholder="Ej: ¿Se realizan visitas de cotización?"
               disabled={isLoading}
               className="flex-1 px-4 py-2.5 rounded-2xl border border-slate-300 text-xs sm:text-sm text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100 placeholder:text-slate-400"
             />
@@ -388,7 +357,7 @@ export const ClientAssistantModal: React.FC<ClientAssistantModalProps> = ({
           <div className="flex items-center justify-between text-[10px] text-slate-500 px-1">
             <span className="flex items-center gap-1">
               <ShieldCheck className="w-3 h-3 text-emerald-600" />
-              Restricción activa: Solo responde consultas sobre cotizaciones asociadas al RUT ingresado.
+              Preguntas frecuentes o, con RUT, el estado de tu cotización.
             </span>
             <button
               type="button"

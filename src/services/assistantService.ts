@@ -1,6 +1,6 @@
 import { QuoteRequest } from '../types';
 import { cleanRut, formatRut, matchesRut } from '../utils/rutUtils';
-import { getStoredQuotes } from './quoteStorage';
+import { matchFaqAnswer } from '../constants/faqAssistant';
 
 export interface AssistantMessage {
   id: string;
@@ -56,6 +56,11 @@ export function generateLocalAssistantResponse(
 ): { text: string; isOutOfScope: boolean } {
   const cleanedRut = cleanRut(userRut);
   const formattedRut = formatRut(userRut);
+  const faq = matchFaqAnswer(userQuery);
+
+  if (faq) {
+    return { text: faq.answer, isOutOfScope: false };
+  }
 
   // Check if query is unrelated to quotes
   if (!isQueryAboutQuotes(userQuery)) {
@@ -67,8 +72,14 @@ export function generateLocalAssistantResponse(
 
   // Check if there are quotes for this RUT
   if (!quotes || quotes.length === 0) {
+    if (!cleanedRut) {
+      return {
+        text: 'Puedo responder sobre visitas de cotización, plazos de instalación y cambio de mallas. Si ya cotizaste, ingresa tu RUT para ver el estado de tu solicitud.',
+        isOutOfScope: false,
+      };
+    }
     return {
-      text: `No encontramos cotizaciones registradas para el RUT **${formattedRut}**.\n\nPor favor verifica que el RUT ingresado sea el mismo utilizado al cotizar, o solicita una nueva cotización desde la opción **Cotizar Malla** en el menú superior.`,
+      text: `No encontramos cotizaciones registradas para el RUT **${formattedRut}**.\n\nPor favor verifica que el RUT ingresado sea el mismo utilizado al cotizar, o solicita una nueva cotización desde **Cotizar**.`,
       isOutOfScope: false,
     };
   }
@@ -187,6 +198,18 @@ export async function askClientAssistant(
 ): Promise<AssistantMessage> {
   const cleanedRut = cleanRut(userRut);
   const matchedQuotes = allQuotes.filter((q) => matchesRut(q.clientRut, cleanedRut));
+  const faq = matchFaqAnswer(userQuery);
+
+  if (faq) {
+    return {
+      id: 'msg-' + Date.now(),
+      sender: 'assistant',
+      text: faq.answer,
+      timestamp: new Date().toISOString(),
+      matchedQuotesCount: matchedQuotes.length,
+      isOutOfScopeWarning: false,
+    };
+  }
 
   try {
     const response = await fetch('/api/assistant/chat', {
