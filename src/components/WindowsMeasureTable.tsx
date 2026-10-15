@@ -43,37 +43,38 @@ export const WindowsMeasureTable: React.FC<WindowsMeasureTableProps> = ({
   const text = compact ? 'text-[11px]' : 'text-xs';
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-nydo-ink/10 bg-white">
       <table className={`w-full ${text} text-left`}>
-        <thead className="bg-slate-50 text-slate-600">
+        <thead className="bg-nydo-cream text-nydo-ink/70 uppercase tracking-wide">
           <tr>
             <th className="px-3 py-2 font-bold">{itemHeader}</th>
             <th className="px-3 py-2 font-bold">Ubicación</th>
-            <th className="px-3 py-2 font-bold">Ancho (cm)</th>
-            <th className="px-3 py-2 font-bold">Alto (cm)</th>
-            <th className="px-3 py-2 font-bold">Superficie (m²)</th>
+            <th className="px-3 py-2 font-bold text-right">Ancho (cm)</th>
+            <th className="px-3 py-2 font-bold text-right">Alto (cm)</th>
+            <th className="px-3 py-2 font-bold text-right">Superficie (m²)</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="tabular-nums">
           {rows.map((row, index) => (
-            <tr key={row.id || `${row.label}-${index}`} className="border-t border-slate-100">
-              <td className="px-3 py-2 font-semibold text-slate-800">{row.label}</td>
-              <td className="px-3 py-2 text-slate-600">{row.location || '—'}</td>
-              <td className="px-3 py-2 text-slate-700">{row.widthCm != null ? row.widthCm : '—'}</td>
-              <td className="px-3 py-2 text-slate-700">{row.heightCm != null ? row.heightCm : '—'}</td>
-              <td className="px-3 py-2 text-slate-700">{row.area != null ? formatAreaM2(row.area) : '—'}</td>
+            <tr key={row.id || `${row.label}-${index}`} className="border-t border-nydo-ink/5">
+              <td className="px-3 py-2 font-semibold text-nydo-ink">{row.label}</td>
+              <td className="px-3 py-2 text-nydo-ink/70">{row.location || '—'}</td>
+              <td className="px-3 py-2 text-right">{row.widthCm != null ? row.widthCm : '—'}</td>
+              <td className="px-3 py-2 text-right">{row.heightCm != null ? row.heightCm : '—'}</td>
+              <td className="px-3 py-2 text-right">{row.area != null ? formatAreaM2(row.area) : '—'}</td>
             </tr>
           ))}
         </tbody>
+        <tfoot className="bg-[#fbf6f1] border-t border-nydo-ink/10 font-bold tabular-nums">
+          <tr>
+            <td className="px-3 py-2" colSpan={2}>
+              Total: {rows.length}
+            </td>
+            <td className="px-3 py-2" colSpan={2} />
+            <td className="px-3 py-2 text-right">{formatAreaM2(totalArea)} m²</td>
+          </tr>
+        </tfoot>
       </table>
-      <div className={`${text} px-3 py-2 bg-slate-50 border-t border-slate-200 text-slate-700 space-y-0.5`}>
-        <p>
-          <strong>Cantidad total:</strong> {rows.length}
-        </p>
-        <p>
-          <strong>Superficie total:</strong> {formatAreaM2(totalArea)} m²
-        </p>
-      </div>
     </div>
   );
 };
@@ -93,17 +94,18 @@ export const QuoteWindowsPanel: React.FC<{ quote: QuoteRequest; compact?: boolea
   if (count === 0) return null;
 
   return (
-    <div className={compact ? 'space-y-2' : 'rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-2'}>
+    <div className={compact ? 'space-y-2' : 'rounded-xl border border-nydo-ink/10 bg-[#fbf6f1] p-3 space-y-2'}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={compact ? 'text-[11px] font-semibold text-slate-800' : 'text-sm font-semibold text-slate-800'}>
+        <p className={compact ? 'text-[11px] font-semibold text-nydo-ink' : 'text-sm font-semibold text-nydo-ink'}>
           {count} {balcony ? (count === 1 ? 'paño' : 'paños') : count === 1 ? 'ventana' : 'ventanas'} · {area} m²
         </p>
         <button
           type="button"
+          aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
-          className="text-sky-700 hover:text-sky-900 font-bold text-[11px] cursor-pointer"
+          className="ops-btn !min-h-8 !px-3 !text-xs"
         >
-          {open ? 'Ocultar medidas' : '+ Ver ventanas y medidas'}
+          {open ? 'Ocultar medidas' : 'Ver ventanas y medidas'}
         </button>
       </div>
       {open && (

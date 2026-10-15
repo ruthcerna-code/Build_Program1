@@ -21,7 +21,7 @@ Cópialas desde `.env.local` (no subas ese archivo a git). En Vercel: **Settings
 | `QUOTE_COPY_EMAIL` | Sí | `nydo.mallas@gmail.com` |
 | `FORMSUBMIT_COMPANY_ID` | Sí | El id de FormSubmit ya activado en local |
 | `RESEND_API_KEY` | Sí (Secret) | La misma API key de Resend |
-| `MAIL_FROM` | Sí | `Nydo Mallas <onboarding@resend.dev>` (hasta verificar dominio) |
+| `MAIL_FROM` | Sí | `Nydo Mallas <noreply@nydo.cl>` |
 | `APP_URL` | Sí | `https://build-program1.vercel.app` (o tu dominio) |
 
 No hace falta `GOOGLE_CLIENT_ID` ni `VITE_GOOGLE_CLIENT_ID` para que el login y las cotizaciones funcionen como en develop.
@@ -41,8 +41,8 @@ Si develop ya usa este mismo proyecto de Supabase, los datos son los mismos. Sol
 
 ## Correo en producción
 
-- FormSubmit se activó para `http://localhost:3000`. En Vercel el origen es otro: la **primera cotización** desde el sitio publicado mandará otra vez **Activate Form**. Hay que pulsar ese botón.
-- Resend en modo prueba **solo entrega a** `ruth.cerna@gmail.com`. El cliente genérico no recibe hasta verificar un dominio en [resend.com/domains](https://resend.com/domains) y cambiar `MAIL_FROM` a un correo de ese dominio.
+- `nydo.cl` está verificado en Resend. El remitente debe ser `Nydo Mallas <noreply@nydo.cl>` (Production y Preview).
+- FormSubmit queda como respaldo. La primera vez desde un origen nuevo puede pedir **Activate Form**.
 
 ## Después de cargar las variables
 

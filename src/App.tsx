@@ -360,8 +360,17 @@ export default function App() {
     setTimeout(() => setAuthToast(null), 3500);
   };
 
+  const adminUi = isUserAdmin(currentUser);
+  const staffUi = isInternalUser(currentUser);
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white">
+    <div
+      className={
+        staffUi
+          ? 'min-h-screen ops-shell flex flex-col selection:bg-nydo-yellow selection:text-nydo-ink'
+          : 'min-h-screen bg-nydo-cream text-nydo-ink flex flex-col font-body selection:bg-nydo-yellow selection:text-nydo-ink'
+      }
+    >
       {/* Top Header with streamlined navigation views */}
       <Header
         currentView={currentView}
@@ -377,7 +386,13 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <main
+        className={
+          currentView === 'client' && !adminUi
+            ? 'flex-1 w-full'
+            : 'flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8'
+        }
+      >
         {currentView === 'client' && (
           <HomeClientView
             quotes={quotes}
@@ -442,32 +457,32 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <>
-              {canSyncData(currentUser) && (
-                <AdminSyncBar
-                  onApplyQuotes={(remote) => {
-                    const local = getStoredQuotes();
-                    const remoteIds = new Set(remote.map((q: QuoteRequest) => q.id));
-                    const extras = local.filter((q) => !remoteIds.has(q.id));
-                    const merged = [...remote, ...extras];
-                    saveQuotesToStorage(merged);
-                    setQuotes(merged);
-                  }}
-                />
-              )}
-              <SimpleQuotesView
-                quotes={quotes.filter((q) => q.status !== 'aceptada')}
-                currentUser={currentUser}
-                title="CT recibida"
-                onUpdateStatus={handleUpdateStatus}
-                onUpdateNotes={handleUpdateNotes}
-                onDeleteQuote={handleSoftDelete}
-                onAcceptQuote={handleAcceptQuote}
-                onRegisterPayment={handleRegisterPayment}
-                onSendEmail={handleSendQuoteEmail}
-                toast={authToast}
-              />
-            </>
+            <SimpleQuotesView
+              quotes={quotes.filter((q) => q.status !== 'aceptada')}
+              currentUser={currentUser}
+              title="CT recibida"
+              banner={
+                canSyncData(currentUser) ? (
+                  <AdminSyncBar
+                    onApplyQuotes={(remote) => {
+                      const local = getStoredQuotes();
+                      const remoteIds = new Set(remote.map((q: QuoteRequest) => q.id));
+                      const extras = local.filter((q) => !remoteIds.has(q.id));
+                      const merged = [...remote, ...extras];
+                      saveQuotesToStorage(merged);
+                      setQuotes(merged);
+                    }}
+                  />
+                ) : undefined
+              }
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateNotes={handleUpdateNotes}
+              onDeleteQuote={handleSoftDelete}
+              onAcceptQuote={handleAcceptQuote}
+              onRegisterPayment={handleRegisterPayment}
+              onSendEmail={handleSendQuoteEmail}
+              toast={authToast}
+            />
           )
         )}
 
@@ -625,257 +640,111 @@ export default function App() {
       {(currentView === 'client' ||
         currentView === 'quote_mesh' ||
         currentView === 'client_portal' ||
-        currentView === 'received_quotes') &&
+        currentView === 'received_quotes' ||
+        currentView === 'contact') &&
         !isUserAdmin(currentUser) && (
-        <ClientAssistantFloatingButton
-          onClick={() => setIsAssistantOpen(true)}
-          quotesCount={
-            quotes.filter((q) =>
-              currentUser?.rut
-                ? q.clientRut === currentUser.rut
-                : currentUser?.email
-                ? q.clientEmail.toLowerCase() === currentUser.email.toLowerCase()
-                : false
-            ).length
-          }
-        />
+        <>
+          <a
+            href={WHATSAPP_QUOTE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-6 left-6 z-40 nydo-btn nydo-btn-whatsapp shadow-xl"
+          >
+            WhatsApp
+          </a>
+          <ClientAssistantFloatingButton
+            onClick={() => setIsAssistantOpen(true)}
+            quotesCount={
+              quotes.filter((q) =>
+                currentUser?.rut
+                  ? q.clientRut === currentUser.rut
+                  : currentUser?.email
+                  ? q.clientEmail.toLowerCase() === currentUser.email.toLowerCase()
+                  : false
+              ).length
+            }
+          />
+        </>
       )}
 
       {/* Floating System Auth Toast */}
       {authToast && (
         <div
           id="auth-notification-toast"
-          className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 text-xs max-w-md animate-fade-in"
+          role="status"
+          className="fixed bottom-6 right-6 z-50 bg-nydo-ink text-nydo-cream px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm max-w-md animate-fade-in font-body"
         >
-          <div className="w-7 h-7 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+          <div className="w-7 h-7 rounded-full bg-nydo-orange text-nydo-ink flex items-center justify-center shrink-0">
             <Check className="w-4 h-4 stroke-[3]" />
           </div>
-          <p className="font-semibold text-slate-100 flex-1">{authToast}</p>
+          <p className="font-semibold flex-1">{authToast}</p>
           <button
             type="button"
             onClick={() => setAuthToast(null)}
-            className="text-slate-400 hover:text-white text-xs font-bold px-1"
+            aria-label="Cerrar aviso"
+            className="text-nydo-cream/60 hover:text-nydo-cream text-xs font-bold px-1 cursor-pointer"
           >
             ✕
           </button>
         </div>
       )}
 
-      {/* Corporate Footer */}
-      <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-8 border-b border-slate-800 text-xs">
-            {/* Brand column */}
-            <div className="space-y-3 md:col-span-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-sky-500 text-slate-950 flex items-center justify-center font-bold">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <span className="text-lg font-black text-white tracking-tight">
-                  Nydo<span className="text-sky-400"> Mallas</span>
+      {staffUi ? (
+        <footer className="border-t border-nydo-ink/10 bg-[#f7f1eb] py-5 text-xs text-nydo-ink/60">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p>
+              <span className="nydo-display text-base text-nydo-ink tracking-[-0.04em]">
+                nydo<span className="text-nydo-orange" aria-hidden="true">✳</span>
+              </span>{' '}
+              Panel de operación · © {new Date().getFullYear()} Nydo Mallas
+            </p>
+            <p>
+              {CONTACT_PHONE_DISPLAY} · {CONTACT_EMAIL}
+            </p>
+          </div>
+        </footer>
+      ) : (
+        <footer className="bg-nydo-orange text-nydo-ink py-12">
+          <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-14">
+            <div className="flex flex-col sm:flex-row sm:justify-between gap-6 mb-12 text-sm">
+              <div>
+                <span className="nydo-display text-4xl tracking-[-0.08em]">
+                  nydo<span aria-hidden="true">✳</span>
                 </span>
+                <small className="block text-[10px] tracking-[0.2em] font-bold mt-1.5">MALLAS DE PROTECCIÓN</small>
               </div>
-              <p className="text-slate-400 max-w-md leading-relaxed">
-                Empresa especializada en la fabricación e instalación de mallas de seguridad
-                para ventanas, balcones y terrazas. Protegemos lo más valioso de tu hogar.
+              <p>
+                Una casa llena de vida.
+                <br />
+                Un espacio para los tuyos.
               </p>
-              <div className="flex items-center gap-4 text-slate-400 text-xs pt-1">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Cotización sin costo
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  No tapa la vista
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Plazo según evaluación
-                </span>
+            </div>
+            <h2 className="nydo-display uppercase text-nydo-cream text-[clamp(3.4rem,8vw,8rem)]">
+              ¿Armamos tu Nydo?
+            </h2>
+            <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <p>Cuéntanos qué quieres proteger.</p>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" onClick={handleNavigateToQuoteMesh} className="nydo-btn">
+                  EMPECEMOS ↗
+                </button>
+                <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="nydo-btn nydo-btn-whatsapp">
+                  WhatsApp
+                </a>
               </div>
             </div>
-
-            {isUserAdmin(currentUser) ? (
-              <div className="space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
-                  Operación
-                </span>
-                <ul className="space-y-2">
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentView('admin');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="hover:text-white transition-colors flex items-center gap-1.5"
-                    >
-                      <span>CT recibida</span>
-                      {pendingQuotesCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white font-bold text-[10px]">
-                          {pendingQuotesCount}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentView('approved_quotes');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="hover:text-white transition-colors flex items-center gap-1.5"
-                    >
-                      <span>CT Aceptadas</span>
-                      {approvedQuotesCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white font-bold text-[10px]">
-                          {approvedQuotesCount}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentView('sales');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="hover:text-white transition-colors"
-                    >
-                      Ventas
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentView('team');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="hover:text-white transition-colors"
-                    >
-                      Cuentas
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            ) : isInternalUser(currentUser) ? (
-              <div className="space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
-                  Operación
-                </span>
-                <ul className="space-y-2">
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentView('client');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="hover:text-white transition-colors"
-                    >
-                      Inicio
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrentView('technician_orders');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="hover:text-white transition-colors flex items-center gap-1.5"
-                    >
-                      <span>Pedidos técnicos</span>
-                      {technicianOrdersCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full bg-sky-600 text-white font-bold text-[10px]">
-                          {technicianOrdersCount}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
-                  Cotizar
-                </span>
-                <ul className="space-y-2">
-                  <li>
-                    <button
-                      type="button"
-                      onClick={handleNavigateToQuoteMesh}
-                      className="hover:text-white transition-colors"
-                    >
-                      Solicitar cotización
-                    </button>
-                  </li>
-                  <li>
-                    <a
-                      href={WHATSAPP_QUOTE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-white transition-colors"
-                    >
-                      Escribir por WhatsApp
-                    </a>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => setIsAssistantOpen(true)}
-                      className="hover:text-white transition-colors"
-                    >
-                      Preguntas frecuentes / consulta por RUT
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        goToView('contact');
-                      }}
-                      className="hover:text-white transition-colors"
-                    >
-                      Contáctanos
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <span className="font-bold text-white uppercase tracking-wider text-[11px] block">
-                Contacto y cobertura
+            <div className="mt-12 pt-5 border-t border-nydo-ink/25 flex flex-col sm:flex-row justify-between gap-3 text-xs">
+              <span>© {new Date().getFullYear()} Nydo Mallas</span>
+              <span>
+                {CONTACT_PHONE_DISPLAY} · {CONTACT_EMAIL}
               </span>
-              <ul className="space-y-2 text-slate-400">
-                <li className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white">
-                    {CONTACT_PHONE_DISPLAY} (WhatsApp)
-                  </a>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>{CONTACT_EMAIL}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>{CONTACT_COVERAGE}</span>
-                </li>
-              </ul>
+              <button type="button" onClick={() => goToView('contact')} className="bg-transparent border-0 font-bold underline cursor-pointer">
+                Contáctanos
+              </button>
             </div>
           </div>
-
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
-            <p>&copy; {new Date().getFullYear()} Nydo Mallas &bull; Todos los derechos reservados.</p>
-            <p>Mallas de seguridad para ventanas, balcones y terrazas</p>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

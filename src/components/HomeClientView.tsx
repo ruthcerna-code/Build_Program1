@@ -46,28 +46,25 @@ export const HomeClientView: React.FC<HomeClientViewProps> = ({
 
   // Client Home (Public presentation of offer, goals & Gmail auth gate)
   return (
-    <div id="view-home-client" className="space-y-6 pb-16">
-      {/* Banner for Admin when previewing client mode */}
+    <div id="view-home-client">
       {isAdmin && adminViewingClientPreview && (
-        <div className="bg-amber-500/10 border border-amber-400/50 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 animate-fade-in shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" />
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-14 py-4">
+          <div className="bg-nydo-yellow/40 border border-nydo-ink/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-nydo-ink">
             <span className="font-bold">
-              Vista previa activa: Estás viendo la página pública tal como la visualiza un cliente visitante.
+              Vista previa: estás viendo la página pública tal como la ve un cliente.
             </span>
+            <button
+              type="button"
+              onClick={() => setAdminViewingClientPreview(false)}
+              className="nydo-btn nydo-btn-ink !min-h-10 !py-2 !px-4 text-xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Volver al Home de Administrador
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setAdminViewingClientPreview(false)}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Volver al Home de Administrador</span>
-          </button>
         </div>
       )}
 
-      {/* Presentation of Offer and Company Goal */}
       <CompanyGoalAndOffer
         onGoToQuoteMesh={onGoToQuoteMesh}
         onOpenAssistant={onOpenAssistant}
