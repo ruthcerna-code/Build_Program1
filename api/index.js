@@ -15,7 +15,7 @@ var GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_
 var SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
 var SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 var RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
-var MAIL_FROM = (process.env.MAIL_FROM || "Nydo Mallas <onboarding@resend.dev>").trim();
+var MAIL_FROM = (process.env.MAIL_FROM || "Nydo Mallas <noreply@nydo.cl>").trim();
 var SITE_URL = (process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")).replace(/\/$/, "");
 function isPrincipalAdmin(email) {
   return (email || "").trim().toLowerCase() === ADMIN_EMAIL;
@@ -913,9 +913,11 @@ function guidedQuoteToDbRow(quote) {
 var CONTACT_PHONE_DISPLAY = "+56 9 4746 0606";
 var CONTACT_PHONE_E164 = "56947460606";
 var CONTACT_EMAIL = "nydo.mallas@gmail.com";
-var WHATSAPP_QUOTE_URL = `https://wa.me/${CONTACT_PHONE_E164}?text=${encodeURIComponent(
-  "Hola, quiero cotizar mallas de seguridad para mi hogar."
-)}`;
+function whatsappQuoteUrl(space) {
+  const text = space ? `Hola, quiero cotizar mallas de seguridad para ${space}.` : "Hola, quiero cotizar mallas de seguridad para mi hogar.";
+  return `https://wa.me/${CONTACT_PHONE_E164}?text=${encodeURIComponent(text)}`;
+}
+var WHATSAPP_QUOTE_URL = whatsappQuoteUrl();
 
 // src/services/emailFormatter.ts
 var COMPANY_NOTIFICATION_EMAIL = "nydo.mallas@gmail.com";
@@ -1066,10 +1068,13 @@ function generatePricedQuoteEmailText(quote, recipient) {
     const height = win.heightCm ?? Math.round((win.height || 0) * 100);
     return ` \u2022 ${win.name || `Ventana ${i + 1}`}: ${width} cm \xD7 ${height} cm (${formatAreaM2(win.area)} m\xB2)`;
   }).join("\n");
+  const hasBreakdown = Boolean(
+    adminQuote && (adminQuote.profilesAndFixingsCost > 0 || adminQuote.laborAndInstallCost > 0 || adminQuote.meshTotalCost > 0 && adminQuote.meshTotalCost !== adminQuote.total)
+  );
   const valueLines = adminQuote ? [
-    ` \u2022 Malla y anclajes: ${formatCLP(adminQuote.meshTotalCost)}`,
-    ` \u2022 Perfiles y fijaciones: ${formatCLP(adminQuote.profilesAndFixingsCost)}`,
-    ` \u2022 Mano de obra e instalaci\xF3n: ${formatCLP(adminQuote.laborAndInstallCost)}`,
+    hasBreakdown ? ` \u2022 Malla y anclajes: ${formatCLP(adminQuote.meshTotalCost)}` : "",
+    hasBreakdown ? ` \u2022 Perfiles y fijaciones: ${formatCLP(adminQuote.profilesAndFixingsCost)}` : "",
+    hasBreakdown ? ` \u2022 Mano de obra e instalaci\xF3n: ${formatCLP(adminQuote.laborAndInstallCost)}` : "",
     adminQuote.discountAmount > 0 ? ` \u2022 Descuento (${adminQuote.discountPercentage}%): -${formatCLP(adminQuote.discountAmount)}` : "",
     ` \u2022 TOTAL: ${total}`
   ].filter(Boolean).join("\n") : " \u2022 El importe se coordinar\xE1 con el cliente.";
@@ -1279,10 +1284,14 @@ function pricedInner(quote, recipient) {
   const admin2 = quote.adminQuote;
   const heading = recipient === "company" ? "Copia del presupuesto enviado" : "Tu cotizaci\xF3n formal est\xE1 lista";
   const intro = recipient === "company" ? `Presupuesto enviado a ${quote.clientName} <${quote.clientEmail}>.` : `Hola ${quote.clientName}: adjuntamos el presupuesto de mallas de seguridad para tu propiedad.`;
-  const valueRows = admin2 ? `${infoRow("Malla y anclajes", formatCLP2(admin2.meshTotalCost))}
-       ${infoRow("Perfiles y fijaciones", formatCLP2(admin2.profilesAndFixingsCost))}
-       ${infoRow("Mano de obra e instalaci\xF3n", formatCLP2(admin2.laborAndInstallCost))}
+  const hasBreakdown = Boolean(
+    admin2 && (admin2.profilesAndFixingsCost > 0 || admin2.laborAndInstallCost > 0 || admin2.meshTotalCost > 0 && admin2.meshTotalCost !== admin2.total)
+  );
+  const valueRows = admin2 ? `${hasBreakdown ? infoRow("Malla y anclajes", formatCLP2(admin2.meshTotalCost)) : ""}
+       ${hasBreakdown ? infoRow("Perfiles y fijaciones", formatCLP2(admin2.profilesAndFixingsCost)) : ""}
+       ${hasBreakdown ? infoRow("Mano de obra e instalaci\xF3n", formatCLP2(admin2.laborAndInstallCost)) : ""}
        ${admin2.discountAmount > 0 ? infoRow(`Descuento (${admin2.discountPercentage}%)`, `-${formatCLP2(admin2.discountAmount)}`) : ""}
+       ${infoRow("Total", formatCLP2(admin2.total))}
        ${infoRow("Garant\xEDa", `${admin2.warrantyYears} a\xF1os`)}
        ${infoRow("Tiempo estimado", admin2.estimatedTime)}
        ${admin2.adminNotes ? infoRow("Observaciones", admin2.adminNotes) : ""}` : infoRow("Valor", "A coordinar");
@@ -1413,6 +1422,9 @@ async function postCompanyInboxEmail(to, subject, text, _html, replyTo) {
     })
   });
   const body = await sendRes.text();
+  if (/<!doctype|just a moment|cf-ray|checking your browser/i.test(body)) {
+    return { sent: false, error: "El env\xEDo a nydo.mallas@gmail.com qued\xF3 bloqueado. Reenviamos a la administradora." };
+  }
   let parsed = {};
   try {
     parsed = JSON.parse(body);
@@ -1420,6 +1432,9 @@ async function postCompanyInboxEmail(to, subject, text, _html, replyTo) {
     parsed = { message: body.slice(0, 180) };
   }
   const message = String(parsed.message || "");
+  if (/<!doctype|just a moment/i.test(message)) {
+    return { sent: false, error: "El env\xEDo a nydo.mallas@gmail.com qued\xF3 bloqueado. Reenviamos a la administradora." };
+  }
   const activated = parsed.success === "true" || /activated|successfully/i.test(message);
   const needsActivation = /activation|activ/i.test(message);
   if (activated || needsActivation) {
@@ -1437,7 +1452,22 @@ async function sendInboxEmail(to, subject, text, replyTo, html) {
   if (resend.sent) return { sent: true };
   const companyInbox = (QUOTE_COPY_EMAIL || "nydo.mallas@gmail.com").toLowerCase();
   if (destination === companyInbox) {
-    return postCompanyInboxEmail(destination, subject, text, html, replyTo);
+    const formSubmit = await postCompanyInboxEmail(destination, subject, text, html, replyTo);
+    if (formSubmit.sent) return formSubmit;
+    const adminTo = (ADMIN_EMAIL || "").toLowerCase();
+    if (adminTo && adminTo !== destination) {
+      const copy = await postResendEmail(
+        adminTo,
+        subject,
+        `Copia de mensaje para ${destination}. El env\xEDo directo a ese buz\xF3n no est\xE1 disponible con el correo de prueba.
+
+${text}`,
+        replyTo,
+        html
+      );
+      if (copy.sent) return { sent: true };
+    }
+    return formSubmit;
   }
   return { sent: false, error: resend.error };
 }
@@ -1465,30 +1495,30 @@ async function sendQuoteRequestEmail(quote, kind = "request") {
     const companyTo = (QUOTE_COPY_EMAIL || "nydo.mallas@gmail.com").toLowerCase();
     const companyMail = contentFor(quote, kind, "company");
     const clientMail = contentFor(quote, kind, "client");
-    const company = await sendInboxEmail(
-      companyTo,
-      companyMail.subject,
-      companyMail.text,
-      clientTo,
-      companyMail.html
-    );
-    const client = clientTo === companyTo ? company : await sendInboxEmail(
+    const client = await sendInboxEmail(
       clientTo,
       clientMail.subject,
       clientMail.text,
       companyTo,
       clientMail.html
     );
-    if (!company.sent) {
-      return {
-        sent: false,
-        error: `No lleg\xF3 a nydo.mallas@gmail.com. ${company.error || ""}`.trim()
-      };
-    }
+    const company = clientTo === companyTo ? client : await sendInboxEmail(
+      companyTo,
+      companyMail.subject,
+      companyMail.text,
+      clientTo,
+      companyMail.html
+    );
     if (!client.sent) {
       return {
         sent: false,
-        error: `Lleg\xF3 a nydo.mallas@gmail.com, pero no al cliente (${clientTo}). ${client.error || ""}`.trim()
+        error: `No lleg\xF3 al cliente (${clientTo}). ${client.error || ""}`.trim()
+      };
+    }
+    if (!company.sent) {
+      return {
+        sent: true,
+        error: `El cliente lo recibi\xF3. No lleg\xF3 a nydo.mallas@gmail.com. ${company.error || ""}`.trim()
       };
     }
     return { sent: true };
@@ -1702,18 +1732,24 @@ function mountApiRoutes(app) {
       if (typeof req.body?.notes === "string" && quote.adminQuote) {
         quote.adminQuote.adminNotes = req.body.notes;
       }
-      const mail = await sendQuoteRequestEmail(quote, quote.adminQuote ? "priced" : "request");
+      const kind = quote.adminQuote && Number(quote.adminQuote.total) > 0 ? "priced" : "request";
+      if (kind !== "priced") {
+        return res.status(400).json({
+          error: "Ingresa el importe en pesos antes de enviar el correo con precio al cliente."
+        });
+      }
+      const mail = await sendQuoteRequestEmail(quote, "priced");
       if (!mail.sent) {
         return res.status(502).json({ error: mail.error || "No pudimos enviar el correo al cliente." });
       }
       const sentAt = (/* @__PURE__ */ new Date()).toISOString();
       const adminQuote = quote.adminQuote ? { ...quote.adminQuote, sentAt, sentToEmail: quote.clientEmail } : quote.adminQuote;
       if (adminQuote) {
-        await db.from("quotes").update({ admin_quote: adminQuote }).eq("id", quote.id);
+        await db.from("quotes").update({ admin_quote: adminQuote, status: "cotizada" }).eq("id", quote.id);
       }
       res.json({
-        quote: { ...quote, adminQuote },
-        message: `Enviamos un correo a nydo.mallas@gmail.com y otro a ${quote.clientEmail}.`,
+        quote: { ...quote, adminQuote, status: "cotizada" },
+        message: mail.error ? mail.error : `Enviamos la cotizaci\xF3n con precio a ${quote.clientEmail}.`,
         mailSent: true
       });
     } catch (err) {
@@ -1986,8 +2022,9 @@ ${message}`,
         email
       );
       if (!mail.sent) {
+        const raw = String(mail.error || "");
         return res.status(502).json({
-          error: mail.error || "El servicio de correo no acept\xF3 el env\xEDo. Intenta de nuevo en unos minutos."
+          error: /<!doctype|<html|just a moment/i.test(raw) ? "No pudimos enviar el mensaje. Intenta de nuevo en unos minutos." : raw || "El servicio de correo no acept\xF3 el env\xEDo. Intenta de nuevo en unos minutos."
         });
       }
       markContact(ip);

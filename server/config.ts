@@ -13,7 +13,7 @@ export const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || process.env.VIT
 export const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
 export const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 export const RESEND_API_KEY = (process.env.RESEND_API_KEY || '').trim();
-export const MAIL_FROM = (process.env.MAIL_FROM || 'Nydo Mallas <onboarding@resend.dev>').trim();
+export const MAIL_FROM = (process.env.MAIL_FROM || 'Nydo Mallas <noreply@nydo.cl>').trim();
 export const SITE_URL = (
   process.env.APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')

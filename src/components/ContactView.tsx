@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Send } from 'lucide-react';
 import { CONTACT_INBOX_EMAIL } from '../constants/admin';
+import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
 
 export const ContactView: React.FC = () => {
   const [name, setName] = useState('');
@@ -48,86 +48,58 @@ export const ContactView: React.FC = () => {
   };
 
   return (
-    <section className="max-w-xl mx-auto pb-16">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center">
-            <Mail className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-black text-slate-900">Contáctanos</h1>
-            <p className="text-sm text-slate-500">Te respondemos a tu correo. El mensaje llega a {CONTACT_INBOX_EMAIL}.</p>
-          </div>
+    <section className="max-w-2xl mx-auto pb-16 font-body text-nydo-ink">
+      <p className="uppercase tracking-[0.14em] text-xs font-bold mb-3">Hablemos</p>
+      <h1 className="nydo-display text-[clamp(2.8rem,6vw,4.5rem)] mb-3">Contáctanos</h1>
+      <p className="text-sm mb-6 max-w-md">
+        Te respondemos a tu correo. El mensaje llega a {CONTACT_INBOX_EMAIL}. También puedes escribir por WhatsApp.
+      </p>
+      <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="nydo-btn nydo-btn-whatsapp mb-8">
+        WhatsApp {CONTACT_PHONE_DISPLAY}
+      </a>
+
+      <form onSubmit={handleSubmit} className="bg-nydo-orange rounded-[20px] p-6 sm:p-8 space-y-4">
+        <label className="block text-sm font-bold">
+          Nombre
+          <input required value={name} onChange={(e) => setName(e.target.value)} className="nydo-input mt-1" />
+        </label>
+        <label className="block text-sm font-bold">
+          Correo electrónico
+          <input
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="nydo-input mt-1"
+          />
+        </label>
+        <label className="block text-sm font-bold">
+          Teléfono (opcional)
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} className="nydo-input mt-1" />
+        </label>
+        <label className="block text-sm font-bold">
+          Asunto
+          <input required value={subject} onChange={(e) => setSubject(e.target.value)} className="nydo-input mt-1" />
+        </label>
+        <label className="block text-sm font-bold">
+          Mensaje
+          <textarea
+            required
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="nydo-input mt-1 min-h-[140px]"
+          />
+        </label>
+        <div className="hidden" aria-hidden="true">
+          <input tabIndex={-1} value={website} onChange={(e) => setWebsite(e.target.value)} />
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <label className="block text-sm font-bold text-slate-700">
-            Nombre
-            <input
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-            />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            Correo electrónico
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-            />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            Teléfono (opcional)
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-            />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            Asunto
-            <input
-              required
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-            />
-          </label>
-          <label className="block text-sm font-bold text-slate-700">
-            Mensaje
-            <textarea
-              required
-              rows={5}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900"
-            />
-          </label>
-          <div className="hidden" aria-hidden="true">
-            <input tabIndex={-1} value={website} onChange={(e) => setWebsite(e.target.value)} />
-          </div>
-
-          {error && (
-            <p className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">{error}</p>
-          )}
-          {ok && (
-            <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">{ok}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold disabled:opacity-60 cursor-pointer"
-          >
-            <Send className="w-4 h-4" />
-            {loading ? 'Enviando…' : 'Enviar mensaje'}
-          </button>
-        </form>
-      </div>
+        {error && <p className="text-sm font-bold bg-nydo-cream rounded-lg px-3 py-2">{error}</p>}
+        {ok && <p className="text-sm font-bold bg-nydo-cream rounded-lg px-3 py-2">{ok}</p>}
+        <button type="submit" disabled={loading} className="nydo-btn nydo-btn-blue w-full disabled:opacity-60">
+          {loading ? 'Enviando…' : 'Enviar mensaje ↗'}
+        </button>
+      </form>
     </section>
   );
 };

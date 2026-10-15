@@ -1,21 +1,9 @@
 import React, { useState } from 'react';
-import {
-  ShieldCheck,
-  Inbox,
-  Home,
-  Phone,
-  Sparkles,
-  Wrench,
-  LogIn,
-  LogOut,
-  ChevronDown,
-  Database,
-  CheckCircle2,
-} from 'lucide-react';
+import { LogIn, LogOut, ChevronDown, Database, ExternalLink } from 'lucide-react';
 import { UserAccount } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import { isUserAdmin, isUserTechnician } from '../services/authStorage';
-import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
+import { WHATSAPP_QUOTE_URL } from '../constants/contact';
 import { canViewQuotes, canViewSales } from '../services/permissions';
 import { isPrincipalAdminEmail } from '../constants/admin';
 
@@ -46,6 +34,20 @@ interface HeaderProps {
   onOpenSupabaseModal?: () => void;
 }
 
+interface NavItem {
+  view: AppView;
+  label: string;
+  count?: number;
+  id?: string;
+}
+
+function roleLabel(user: UserAccount) {
+  if (isUserAdmin(user)) return 'Administradora';
+  if (user.role === 'tecnico') return 'Técnico';
+  if (user.role === 'interno') return 'Equipo interno';
+  return 'Cliente';
+}
+
 export const Header: React.FC<HeaderProps> = ({
   currentView,
   onNavigate,
@@ -59,475 +61,286 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const supabaseConnected = isSupabaseConfigured();
-  const isAdmin = isUserAdmin(currentUser || null);
-  const isTechnician = isUserTechnician(currentUser || null);
-  const showSales = canViewSales(currentUser || null);
-  const showInternalTools = isPrincipalAdminEmail(currentUser?.email);
+  const user = currentUser || null;
+  const isAdmin = isUserAdmin(user);
+  const isTechnician = isUserTechnician(user);
+  const isStaff = isAdmin || isTechnician || user?.role === 'interno';
+  const showInternalTools = isPrincipalAdminEmail(user?.email);
 
-  const navBase = isAdmin
-    ? 'bg-slate-800/90 border-slate-700/80 text-slate-200'
-    : 'bg-slate-100 border-slate-200 text-slate-700';
+  const goPublicSection = (id: string) => {
+    if (currentView !== 'client') onNavigate('client');
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, currentView === 'client' ? 0 : 80);
+  };
 
-  return (
-    <header
-      id="app-main-header"
-      className={`sticky top-0 z-40 transition-colors duration-200 ${
-        isAdmin
-          ? 'bg-slate-900 border-b border-slate-800 text-white shadow-md'
-          : 'bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs text-slate-900'
-      }`}
-    >
-      {isAdmin && (
-        <div
-          id="admin-top-status-strip"
-          className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-1 text-[11px] font-black tracking-wide flex items-center justify-between border-b border-amber-600/40"
+  const staffNav: NavItem[] = isAdmin
+    ? [
+        { view: 'admin', label: 'CT recibida', count: pendingQuotesCount, id: 'btn-nav-admin' },
+        { view: 'approved_quotes', label: 'CT Aceptadas', count: approvedQuotesCount, id: 'btn-nav-approved-quotes' },
+        { view: 'sales', label: 'Ventas' },
+        { view: 'team', label: 'Cuentas' },
+      ]
+    : isTechnician
+    ? [
+        { view: 'client', label: 'Inicio', id: 'btn-nav-client' },
+        { view: 'technician_orders', label: 'Pedidos', count: technicianOrdersCount, id: 'btn-nav-technician-orders' },
+      ]
+    : [
+        { view: 'client', label: 'Inicio' },
+        ...(canViewQuotes(user) ? [{ view: 'admin' as AppView, label: 'Cotizaciones' }] : []),
+        ...(canViewSales(user) ? [{ view: 'sales' as AppView, label: 'Ventas' }] : []),
+        { view: 'contact', label: 'Contáctanos' },
+      ];
+
+  const userMenu = user ? (
+    <div className="relative">
+      <button
+        id="btn-user-profile-menu"
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={showUserMenu}
+        onClick={() => setShowUserMenu(!showUserMenu)}
+        className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 cursor-pointer transition-colors ${
+          isStaff ? 'bg-nydo-cream/10 hover:bg-nydo-cream/20 text-nydo-cream' : 'bg-nydo-ink/10 hover:bg-nydo-ink/15 text-nydo-ink'
+        }`}
+      >
+        <span
+          className={`grid h-8 w-8 place-items-center rounded-full text-sm font-bold ${
+            isStaff ? 'bg-nydo-orange text-nydo-ink' : 'bg-nydo-ink text-nydo-cream'
+          }`}
         >
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
-            <span className="uppercase">Panel Administrador Central &bull; Modo Gestión y Control</span>
+          {user.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+        </span>
+        <span className="hidden md:block text-left leading-tight">
+          <span className="block max-w-[140px] truncate text-xs font-bold">{user.fullName || user.email}</span>
+          <span className={`block text-[11px] ${isStaff ? 'text-nydo-cream/60' : 'text-nydo-ink/70'}`}>{roleLabel(user)}</span>
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+      </button>
+
+      {showUserMenu && (
+        <div
+          id="menu-user-dropdown"
+          role="menu"
+          className="absolute right-0 mt-2 w-60 rounded-xl border border-nydo-ink/10 bg-white py-1.5 text-sm text-nydo-ink shadow-xl z-50"
+        >
+          <div className="border-b border-nydo-ink/10 px-4 py-2.5">
+            <p className="truncate font-bold">{user.fullName}</p>
+            <p className="truncate text-xs text-nydo-ink/60">{user.email}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline font-semibold">
-              Admin: {currentUser?.email || 'ruth.cerna@gmail.com'}
-            </span>
-            <span className="text-[10px] bg-slate-950/20 px-2 py-0.2 rounded font-bold">
-              {supabaseConnected ? 'Supabase conectado' : 'BD local'}
-            </span>
+          {isStaff && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setShowUserMenu(false);
+                onNavigate('client');
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-nydo-cream/60 cursor-pointer"
+            >
+              <ExternalLink className="h-4 w-4 opacity-60" />
+              {isAdmin ? 'Resumen del panel' : 'Ver sitio público'}
+            </button>
+          )}
+          {showInternalTools && onOpenSupabaseModal && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setShowUserMenu(false);
+                onOpenSupabaseModal();
+              }}
+              className="flex w-full items-center justify-between gap-2 px-4 py-2 text-left hover:bg-nydo-cream/60 cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Database className="h-4 w-4 opacity-60" />
+                Base de datos
+              </span>
+              <span className="text-[11px] font-bold text-nydo-ink/60">{supabaseConnected ? 'Activa' : 'Local'}</span>
+            </button>
+          )}
+          <div className="mt-1 border-t border-nydo-ink/10 pt-1">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setShowUserMenu(false);
+                onLogout?.();
+              }}
+              className="flex w-full items-center gap-2 px-4 py-2 text-left font-semibold text-[#9f1d24] hover:bg-[#fdecec] cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </button>
           </div>
         </div>
       )}
+    </div>
+  ) : (
+    <button
+      id="btn-open-login"
+      type="button"
+      onClick={() => onOpenLogin?.('login')}
+      className="nydo-btn nydo-btn-ink !min-h-10 !py-2 !px-4 text-xs"
+      title="Iniciar sesión"
+    >
+      <LogIn className="w-3.5 h-3.5" />
+      <span className="hidden sm:inline">Cuenta</span>
+    </button>
+  );
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18 gap-3">
-          <div
-            id="brand-logo-container"
-            onClick={() => onNavigate(isAdmin ? 'admin' : 'client')}
-            className="flex items-center gap-3 cursor-pointer group min-w-0"
-          >
-            <div
-              className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105 shrink-0 ${
-                isAdmin
-                  ? 'bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 shadow-amber-500/20'
-                  : 'bg-gradient-to-tr from-sky-600 to-blue-700 text-white shadow-sky-500/20'
-              }`}
+  if (isStaff) {
+    return (
+      <header id="app-main-header" className="sticky top-0 z-40 bg-nydo-ink text-nydo-cream font-body shadow-[0_1px_0_#f2e7dd1a]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-4">
+            <button
+              id="brand-logo-container"
+              type="button"
+              onClick={() => onNavigate(isAdmin ? 'admin' : 'client')}
+              className="flex items-baseline gap-3 shrink-0 cursor-pointer bg-transparent border-0 text-nydo-cream"
             >
-              <ShieldCheck className="w-6 h-6 stroke-[2.2]" />
+              <span className="nydo-display text-3xl tracking-[-0.06em]">
+                nydo<span className="text-nydo-orange" aria-hidden="true">✳</span>
+              </span>
+              <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-[0.2em] text-nydo-cream/55">
+                Panel de operación
+              </span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              {showInternalTools && onOpenSupabaseModal && (
+                <button
+                  id="btn-open-supabase-modal"
+                  type="button"
+                  onClick={onOpenSupabaseModal}
+                  className="hidden md:inline-flex items-center gap-2 rounded-full border border-nydo-cream/15 px-3 py-1.5 text-xs font-semibold text-nydo-cream/80 hover:bg-nydo-cream/10 cursor-pointer"
+                  title={supabaseConnected ? 'Supabase conectado' : 'Configuración de base de datos'}
+                >
+                  <span className={`h-2 w-2 rounded-full ${supabaseConnected ? 'bg-[#3ccf74]' : 'bg-nydo-yellow'}`} />
+                  {supabaseConnected ? 'Base conectada' : 'Base local'}
+                </button>
+              )}
+              {userMenu}
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-xl font-black tracking-tight ${
-                    isAdmin ? 'text-white' : 'text-slate-900'
+          </div>
+
+          <nav id="navigation-toggle" aria-label="Secciones del panel" className="-mb-px flex gap-1 overflow-x-auto">
+            {staffNav.map((item) => {
+              const active = currentView === item.view;
+              return (
+                <button
+                  key={item.view}
+                  id={item.id}
+                  type="button"
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => onNavigate(item.view)}
+                  className={`relative inline-flex items-center gap-2 whitespace-nowrap border-b-[3px] px-3.5 pb-3 pt-1 text-sm font-bold transition-colors cursor-pointer ${
+                    active
+                      ? 'border-nydo-orange text-nydo-cream'
+                      : 'border-transparent text-nydo-cream/60 hover:text-nydo-cream'
                   }`}
                 >
-                  Nydo
-                  <span className={isAdmin ? 'text-amber-400' : 'text-sky-600'}>
-                    {' '}
-                    Mallas
-                  </span>
-                </span>
-                {isAdmin ? (
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/40 uppercase tracking-wider">
-                    Portal Administrador
-                  </span>
-                ) : (
-                  <span className="hidden lg:inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200/70">
-                    <Sparkles className="w-3 h-3 text-sky-600" />
-                    Mallas de seguridad
-                  </span>
-                )}
-              </div>
-              <p
-                className={`text-xs font-medium truncate ${
-                  isAdmin ? 'text-slate-400' : 'text-slate-500'
-                }`}
-              >
-                {isAdmin
-                  ? 'Centro de Recepción y Control de Cotizaciones'
-                  : 'Evaluación y cotización sin costo'}
-              </p>
+                  {item.label}
+                  {!!item.count && (
+                    <span
+                      id={item.view === 'admin' ? 'badge-pending-count' : undefined}
+                      className={`min-w-5 rounded-full px-1.5 text-center text-[11px] font-bold tabular-nums ${
+                        active ? 'bg-nydo-orange text-nydo-ink' : 'bg-nydo-cream/15 text-nydo-cream'
+                      }`}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header id="app-main-header" className="sticky top-0 z-40 bg-nydo-orange text-nydo-ink">
+      <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-14">
+        <div className="flex items-center justify-between gap-3 py-5 border-b border-nydo-ink/25">
+          <div
+            id="brand-logo-container"
+            onClick={() => onNavigate('client')}
+            className="flex items-center gap-3 cursor-pointer group min-w-0"
+          >
+            <div className="leading-none">
+              <span className="nydo-display text-[2rem] sm:text-4xl tracking-[-0.08em]">
+                nydo<span aria-hidden="true">✳</span>
+              </span>
+              <small className="block font-body text-[10px] tracking-[0.2em] font-bold mt-1.5">
+                MALLAS DE PROTECCIÓN
+              </small>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <nav
-              id="navigation-toggle"
-              className={`flex items-center p-1.5 rounded-xl border overflow-x-auto max-w-full gap-1 ${navBase}`}
-            >
-              {isAdmin ? (
-                <>
-                  <button
-                    id="btn-nav-admin"
-                    type="button"
-                    onClick={() => onNavigate('admin')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 relative whitespace-nowrap cursor-pointer ${
-                      currentView === 'admin'
-                        ? 'bg-sky-600 text-white shadow-sm'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                    }`}
-                    title="Cotizaciones recibidas"
-                  >
-                    <Inbox
-                      className={`w-3.5 h-3.5 ${
-                        currentView === 'admin' ? 'text-white' : 'text-sky-400'
-                      }`}
-                    />
-                    <span>CT recibida</span>
-                    {pendingQuotesCount > 0 && (
-                      <span
-                        id="badge-pending-count"
-                        className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                          currentView === 'admin'
-                            ? 'bg-white text-sky-700'
-                            : 'bg-amber-400 text-slate-950 font-black'
-                        }`}
-                      >
-                        {pendingQuotesCount}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    id="btn-nav-approved-quotes"
-                    type="button"
-                    onClick={() => onNavigate('approved_quotes')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 relative whitespace-nowrap cursor-pointer ${
-                      currentView === 'approved_quotes'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                    }`}
-                    title="Cotizaciones aceptadas"
-                  >
-                    <CheckCircle2
-                      className={`w-3.5 h-3.5 ${
-                        currentView === 'approved_quotes' ? 'text-white' : 'text-emerald-400'
-                      }`}
-                    />
-                    <span>CT Aceptadas</span>
-                    {approvedQuotesCount > 0 && (
-                      <span
-                        className={`ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                          currentView === 'approved_quotes'
-                            ? 'bg-white text-emerald-800'
-                            : 'bg-emerald-500/30 text-emerald-200'
-                        }`}
-                      >
-                        {approvedQuotesCount}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('sales')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
-                      currentView === 'sales'
-                        ? 'bg-white text-slate-900'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                    }`}
-                  >
-                    <span>Ventas</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('team')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer ${
-                      currentView === 'team'
-                        ? 'bg-white text-slate-900'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                    }`}
-                  >
-                    <span>Cuentas</span>
-                  </button>
-                </>
-              ) : currentUser?.role === 'interno' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('client')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
-                      currentView === 'client' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
-                    }`}
-                  >
-                    <Home className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Inicio</span>
-                  </button>
-                  {canViewQuotes(currentUser) && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('admin')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
-                        currentView === 'admin' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
-                      }`}
-                    >
-                      <Inbox className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Cotizaciones</span>
-                    </button>
-                  )}
-                  {showSales && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('sales')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
-                        currentView === 'sales' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
-                      }`}
-                    >
-                      <span>Ventas</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('contact')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer ${
-                      currentView === 'contact' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
-                    }`}
-                  >
-                    <Phone className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Contáctanos</span>
-                  </button>
-                </>
-              ) : isTechnician ? (
-                <>
-                  <button
-                    id="btn-nav-client"
-                    type="button"
-                    onClick={() => onNavigate('client')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                      currentView === 'client'
-                        ? 'bg-white text-sky-900 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                  >
-                    <Home className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Inicio</span>
-                  </button>
-                  <button
-                    id="btn-nav-technician-orders"
-                    type="button"
-                    onClick={() => onNavigate('technician_orders')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                      currentView === 'technician_orders'
-                        ? 'bg-white text-indigo-900 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                  >
-                    <Wrench className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Pedidos</span>
-                    {technicianOrdersCount > 0 && (
-                      <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
-                        {technicianOrdersCount}
-                      </span>
-                    )}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    id="btn-nav-client"
-                    type="button"
-                    onClick={() => onNavigate('client')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                      currentView === 'client'
-                        ? 'bg-white text-sky-900 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                  >
-                    <Home className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Inicio</span>
-                  </button>
-                  <button
-                    id="btn-nav-quote-mesh"
-                    type="button"
-                    onClick={() => onNavigate('quote_mesh')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
-                      currentView === 'quote_mesh'
-                        ? 'bg-sky-600 text-white shadow-xs'
-                        : 'text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200'
-                    }`}
-                  >
-                    <Sparkles className={`w-3.5 h-3.5 ${currentView === 'quote_mesh' ? 'text-amber-300' : 'text-sky-600'}`} />
-                    <span>Cotizar</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('contact')}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
-                      currentView === 'contact'
-                        ? 'bg-white text-sky-900 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                  >
-                    <Phone className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Contáctanos</span>
-                  </button>
-                  {currentUser?.role === 'cliente' && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('received_quotes')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
-                        currentView === 'received_quotes'
-                          ? 'bg-white text-sky-900 shadow-xs font-bold'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                      }`}
-                    >
-                      <Inbox className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Mis cotizaciones</span>
-                    </button>
-                  )}
-                  {showSales && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('sales')}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
-                        currentView === 'sales' ? 'bg-white text-sky-900 font-bold' : 'text-slate-600'
-                      }`}
-                    >
-                      <span>Ventas</span>
-                    </button>
-                  )}
-                </>
-              )}
-            </nav>
-
-            {!isAdmin && (
-              <a
-                id="btn-header-whatsapp"
-                href={WHATSAPP_QUOTE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-2 pl-2 pr-1 border-l border-slate-200 text-xs hover:opacity-80 transition-opacity"
-              >
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200">
-                  <Phone className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-400 font-medium">WhatsApp</p>
-                  <p className="font-bold text-slate-800">{CONTACT_PHONE_DISPLAY}</p>
-                </div>
-              </a>
-            )}
-
-            {showInternalTools && onOpenSupabaseModal && (
+            <nav id="navigation-toggle" className="flex items-center gap-4 overflow-x-auto max-w-full">
               <button
-                id="btn-open-supabase-modal"
                 type="button"
-                onClick={onOpenSupabaseModal}
-                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                  supabaseConnected
-                    ? 'bg-amber-50/90 text-amber-950 border-amber-300 hover:bg-amber-100'
-                    : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
-                }`}
-                title={supabaseConnected ? 'Supabase conectado' : 'Configuración de base de datos'}
+                onClick={() => goPublicSection('espacios')}
+                className="hidden md:inline text-sm font-semibold cursor-pointer bg-transparent border-0"
               >
-                <Database className={`w-3.5 h-3.5 ${supabaseConnected ? 'text-amber-600' : 'text-slate-400'}`} />
-                <span className="hidden xl:inline">Supabase</span>
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    supabaseConnected ? 'bg-emerald-500' : 'bg-amber-400'
-                  }`}
-                />
+                Espacios
               </button>
-            )}
-
-            <div className={`relative pl-2 sm:pl-3 border-l ${isAdmin ? 'border-slate-800' : 'border-slate-200'}`}>
-              {currentUser ? (
-                <div className="relative">
-                  <button
-                    id="btn-user-profile-menu"
-                    type="button"
-                    onClick={() => setShowUserMenu(!showUserMenu)}
-                    className={`flex items-center gap-2 p-1.5 sm:px-3 sm:py-2 rounded-xl transition-colors cursor-pointer border ${
-                      isAdmin
-                        ? 'bg-slate-800 hover:bg-slate-700/80 border-slate-700 text-white'
-                        : 'bg-sky-50 hover:bg-sky-100 border-sky-200 text-slate-800'
-                    }`}
-                  >
-                    <div
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shadow-xs ${
-                        isAdmin ? 'bg-amber-500 text-slate-950' : 'bg-sky-600 text-white'
-                      }`}
-                    >
-                      {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
-                    </div>
-                    <div className="hidden md:block text-left">
-                      <div className={`text-xs font-bold leading-tight flex items-center gap-1 ${isAdmin ? 'text-white' : 'text-slate-900'}`}>
-                        <span className="truncate max-w-[110px]">{currentUser.fullName || currentUser.email}</span>
-                        <ChevronDown className="w-3 h-3 text-slate-400" />
-                      </div>
-                      <span className={`text-[10px] font-semibold capitalize block ${isAdmin ? 'text-amber-400' : 'text-sky-700'}`}>
-                        {currentUser.role === 'admin'
-                          ? 'Administrador'
-                          : currentUser.role === 'tecnico'
-                          ? 'Técnico'
-                          : 'Cliente'}
-                      </span>
-                    </div>
-                  </button>
-
-                  {showUserMenu && (
-                    <div
-                      id="menu-user-dropdown"
-                      className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-fade-in text-xs"
-                    >
-                      <div className="px-3.5 py-2 border-b border-slate-100">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">
-                          Usuario activo
-                        </span>
-                        <p className="font-bold text-slate-900 truncate mt-0.5">{currentUser.fullName}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
-                      </div>
-
-                      <div className="py-1">
-                        {showInternalTools && onOpenSupabaseModal && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowUserMenu(false);
-                              onOpenSupabaseModal();
-                            }}
-                            className="w-full px-3.5 py-2 text-left hover:bg-slate-50 text-slate-700 flex items-center justify-between transition-colors"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Database className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Base de datos</span>
-                            </div>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                              {supabaseConnected ? 'Activo' : 'Local'}
-                            </span>
-                          </button>
-                        )}
-
-                      </div>
-
-                      <div className="pt-1 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            if (onLogout) onLogout();
-                          }}
-                          className="w-full px-3.5 py-2 text-left hover:bg-rose-50 text-rose-700 flex items-center gap-2 font-medium transition-colors"
-                        >
-                          <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                          <span>Cerrar sesión</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              <button
+                type="button"
+                onClick={() => goPublicSection('proceso')}
+                className="hidden md:inline text-sm font-semibold cursor-pointer bg-transparent border-0"
+              >
+                Cómo funciona
+              </button>
+              <button
+                type="button"
+                onClick={() => goPublicSection('preguntas')}
+                className="hidden md:inline text-sm font-semibold cursor-pointer bg-transparent border-0"
+              >
+                Preguntas
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('contact')}
+                className="hidden sm:inline text-sm font-semibold cursor-pointer bg-transparent border-0"
+              >
+                Contáctanos
+              </button>
+              {user?.role === 'cliente' && (
                 <button
-                  id="btn-open-login"
                   type="button"
-                  onClick={() => onOpenLogin && onOpenLogin('login')}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap"
-                  title="Iniciar sesión"
+                  onClick={() => onNavigate('received_quotes')}
+                  className="hidden sm:inline text-sm font-semibold cursor-pointer bg-transparent border-0"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Cuenta</span>
+                  Mis cotizaciones
                 </button>
               )}
-            </div>
+              <button
+                id="btn-nav-quote-mesh"
+                type="button"
+                onClick={() => onNavigate('quote_mesh')}
+                className="nydo-btn !min-h-10 !py-2 !px-5 text-sm"
+              >
+                Cotizar mi espacio ↗
+              </button>
+            </nav>
+
+            <a
+              id="btn-header-whatsapp"
+              href={WHATSAPP_QUOTE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden lg:inline-flex nydo-btn nydo-btn-whatsapp !min-h-10 !py-2 !px-4 text-sm"
+            >
+              WhatsApp
+            </a>
+
+            <div className="relative pl-2 sm:pl-3 border-l border-nydo-ink/25">{userMenu}</div>
           </div>
         </div>
       </div>

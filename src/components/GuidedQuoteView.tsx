@@ -320,7 +320,7 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
     ];
 
     return (
-      <section className="max-w-5xl mx-auto pb-16 space-y-4">
+      <section className="max-w-5xl mx-auto pb-16 space-y-4 font-body text-nydo-ink">
         <div className="rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-3 flex items-start gap-2 text-sm font-semibold">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           <span>
@@ -411,7 +411,7 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
   const progress = (draft.step / GUIDED_QUOTE_STEPS) * 100;
 
   return (
-    <section className="max-w-xl mx-auto pb-16">
+    <section className="max-w-xl mx-auto pb-16 font-body text-nydo-ink">
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
