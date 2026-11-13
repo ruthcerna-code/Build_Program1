@@ -713,6 +713,115 @@ function isValidRegionCommune(regionCode, commune) {
   return !!region && region.communes.includes(commune);
 }
 
+// src/utils/quotePricing.ts
+var SPACE_TYPE_OPTIONS = [
+  { id: "ventana", label: "Ventana", autoPillars: 0 },
+  { id: "ventana_esquina", label: "Ventana en esquina", autoPillars: 1 },
+  { id: "balcon_abierto", label: "Balc\xF3n abierto sin esquina", autoPillars: 0 },
+  { id: "balcon_abierto_esquina", label: "Balc\xF3n abierto con esquina", autoPillars: 1 },
+  { id: "balcon_cerrado", label: "Balc\xF3n cerrado", autoPillars: 0 },
+  { id: "terraza", label: "Terraza", autoPillars: 0 },
+  { id: "otro", label: "Otro espacio", autoPillars: 0 }
+];
+var LINEAR_RULE_NOTE = "Los metros lineales facturables son una regla comercial de cotizaci\xF3n: (ancho + alto) \xD7 caras. No corresponden a la superficie de malla.";
+var ESTIMATE_DISCLAIMER = "Valores referenciales en pesos chilenos, sin impuestos ni otros cargos. El valor final se confirma en la evaluaci\xF3n t\xE9cnica.";
+var MAX_FACES = 10;
+var MAX_EXTRA_PILLARS = 20;
+var CM_SCALE = 1e3;
+var UNITS_PER_METER = 100 * CM_SCALE;
+function isSpaceType(value) {
+  return SPACE_TYPE_OPTIONS.some((o) => o.id === value);
+}
+function spaceTypeLabel(id) {
+  return SPACE_TYPE_OPTIONS.find((o) => o.id === id)?.label || "Sin tipo";
+}
+function autoPillarsFor(spaceType) {
+  return SPACE_TYPE_OPTIONS.find((o) => o.id === spaceType)?.autoPillars || 0;
+}
+function parseWholeNumber(raw, min, max) {
+  const n = Number(String(raw ?? "").trim());
+  if (!Number.isInteger(n) || n < min || n > max) return null;
+  return n;
+}
+function linearUnits(space) {
+  const w = Math.round(space.widthCm * CM_SCALE);
+  const h = Math.round(space.heightCm * CM_SCALE);
+  return (w + h) * space.faces;
+}
+function computeEstimate(spaces, meshId, config) {
+  const mesh = config.meshes.find((m) => m.id === meshId);
+  if (!mesh) return { error: "Elige el grosor de la malla." };
+  if (!spaces.length) return { error: "Agrega al menos un espacio con sus medidas." };
+  let totalUnits = 0;
+  let autoPillars = 0;
+  let extraPillars = 0;
+  const detailed = spaces.map((space) => {
+    const units = linearUnits(space);
+    const auto = autoPillarsFor(space.spaceType);
+    totalUnits += units;
+    autoPillars += auto;
+    extraPillars += space.extraPillars;
+    return {
+      ...space,
+      spaceTypeLabel: spaceTypeLabel(space.spaceType),
+      linearMeters: units / UNITS_PER_METER,
+      autoPillars: auto
+    };
+  });
+  const pricePerMeter = Number(mesh.amount);
+  const pillarPrice = Number(config.pillar.amount);
+  const depositPercent = Number(config.deposit.amount);
+  const meshSubtotal = Math.round(totalUnits * pricePerMeter / UNITS_PER_METER);
+  const totalPillars = autoPillars + extraPillars;
+  const pillarSubtotal = totalPillars * pillarPrice;
+  const total = meshSubtotal + pillarSubtotal;
+  const deposit = Math.round(total * depositPercent / 100);
+  return {
+    mesh: { id: mesh.id, label: mesh.label, pricePerMeter },
+    pillarPrice,
+    depositPercent,
+    spaces: detailed,
+    totalLinearMeters: totalUnits / UNITS_PER_METER,
+    meshSubtotal,
+    autoPillars,
+    extraPillars,
+    totalPillars,
+    pillarSubtotal,
+    total,
+    deposit,
+    balance: total - deposit,
+    calculatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function formatCLP(amount) {
+  return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(
+    Math.round(amount)
+  );
+}
+function formatMeters(value) {
+  return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(value);
+}
+function formatPercent(value) {
+  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(value)} %`;
+}
+function estimateNarrative(estimate) {
+  const pillars = estimate.totalPillars === 0 ? "No se incluyen pilares en esta estimaci\xF3n." : `Pilares: ${estimate.autoPillars} autom\xE1tico${estimate.autoPillars === 1 ? "" : "s"} + ${estimate.extraPillars} extra = ${estimate.totalPillars} \xD7 ${formatCLP(estimate.pillarPrice)} = ${formatCLP(estimate.pillarSubtotal)}.`;
+  return [
+    `Tus espacios suman ${formatMeters(estimate.totalLinearMeters)} metros lineales facturables. Se calculan como (ancho + alto) \xD7 caras; no son la superficie de la malla.`,
+    `La ${estimate.mesh.label} vale ${formatCLP(estimate.mesh.pricePerMeter)} por metro lineal. Valor de la malla: ${formatMeters(estimate.totalLinearMeters)} ml \xD7 ${formatCLP(estimate.mesh.pricePerMeter)} = ${formatCLP(estimate.meshSubtotal)}.`,
+    pillars,
+    `Valor estimado para el cliente: ${formatCLP(estimate.meshSubtotal)} de malla + ${formatCLP(estimate.pillarSubtotal)} de pilares = ${formatCLP(estimate.total)}.`,
+    `Abono inicial del ${formatPercent(estimate.depositPercent)}: ${formatCLP(estimate.deposit)}. Saldo al finalizar la instalaci\xF3n: ${formatCLP(estimate.balance)}.`
+  ];
+}
+function rowsToPricingConfig(rows) {
+  const meshes = rows.filter((r) => r.kind === "mesh").sort((a, b) => a.sort - b.sort);
+  const pillar = rows.find((r) => r.kind === "pillar");
+  const deposit = rows.find((r) => r.kind === "deposit");
+  if (!meshes.length || !pillar || !deposit) return null;
+  return { meshes, pillar, deposit };
+}
+
 // src/utils/windowMeasures.ts
 function parsePositiveCm(raw) {
   const n = Number(String(raw ?? "").trim().replace(",", "."));
@@ -745,6 +854,17 @@ function toStoredWindow(draft, order, fallbackName) {
   if (heightCm == null) {
     return { error: `${fallbackName}: ingresa un alto mayor a cero.` };
   }
+  if (!isSpaceType(draft.spaceType)) {
+    return { error: `${fallbackName}: elige el tipo de espacio.` };
+  }
+  const faces = parseWholeNumber(draft.faces, 1, MAX_FACES);
+  if (faces == null) {
+    return { error: `${fallbackName}: las caras deben ser un n\xFAmero entero entre 1 y ${MAX_FACES}.` };
+  }
+  const extraPillars = parseWholeNumber(draft.extraPillars || "0", 0, MAX_EXTRA_PILLARS);
+  if (extraPillars == null) {
+    return { error: `${fallbackName}: los pilares extra deben ser un n\xFAmero entero entre 0 y ${MAX_EXTRA_PILLARS}.` };
+  }
   const area = areaM2FromCm(widthCm, heightCm);
   const meshType = "monofilamento";
   return {
@@ -757,7 +877,10 @@ function toStoredWindow(draft, order, fallbackName) {
     area,
     order,
     widthCm,
-    heightCm
+    heightCm,
+    spaceType: draft.spaceType,
+    faces,
+    extraPillars
   };
 }
 function displayCm(storedCm, value, unit) {
@@ -779,6 +902,18 @@ var LENGTH = new Set(LENGTH_OPTIONS.map((o) => o.id));
 var HEIGHT = new Set(HEIGHT_OPTIONS.map((o) => o.id));
 var FINISH = new Set(FINISH_OPTIONS.map((o) => o.id));
 var TIMELINE = new Set(TIMELINE_OPTIONS.map((o) => o.id));
+function estimateFromWindows(windows, surface, meshId, config) {
+  const spaces = windows.map((win, i) => ({
+    label: itemTitle(surface, i),
+    location: win.name,
+    spaceType: win.spaceType,
+    widthCm: win.widthCm ?? win.width * 100,
+    heightCm: win.heightCm ?? win.height * 100,
+    faces: win.faces ?? 1,
+    extraPillars: win.extraPillars ?? 0
+  }));
+  return computeEstimate(spaces, meshId, config);
+}
 function validateGuidedQuote(body) {
   const regionCode = String(body.regionCode || "");
   const commune = String(body.commune || "");
@@ -814,7 +949,10 @@ function parseGuidedWindows(raw, surface) {
       id: String(item.id || `win-${i + 1}`),
       name: String(item.name || ""),
       widthCm: String(item.widthCm ?? ""),
-      heightCm: String(item.heightCm ?? "")
+      heightCm: String(item.heightCm ?? ""),
+      spaceType: isSpaceType(item.spaceType) ? item.spaceType : "",
+      faces: String(item.faces ?? "1"),
+      extraPillars: String(item.extraPillars ?? "0")
     };
     const stored = toStoredWindow(draft, i + 1, itemTitle(surface, i));
     if ("error" in stored) return { error: stored.error };
@@ -823,7 +961,7 @@ function parseGuidedWindows(raw, surface) {
   }
   return { windows, totalAreaM2: total };
 }
-function buildGuidedQuoteRecord(body, ownerEmail, ownerName) {
+function buildGuidedQuoteRecord(body, ownerEmail, ownerName, pricing) {
   const region = getRegionByCode(String(body.regionCode));
   const finishType = body.finishType;
   const finishColor = finishType === "lacado_otros" ? String(body.finishColor || "").trim() : void 0;
@@ -845,12 +983,31 @@ function buildGuidedQuoteRecord(body, ownerEmail, ownerName) {
   if ("error" in parsedWindows) {
     throw new Error(parsedWindows.error);
   }
+  let estimate;
+  if (pricing) {
+    const result = estimateFromWindows(parsedWindows.windows, guided.surfaceType, String(body.meshId || ""), pricing);
+    if ("error" in result) throw new Error(result.error);
+    estimate = result;
+    guided.meshId = result.mesh.id;
+    guided.estimate = result;
+  }
   const windowLines = parsedWindows.windows.map((win, i) => {
     const label = itemTitle(guided.surfaceType, i);
-    return `${label}${win.name && win.name !== label ? ` (${win.name})` : ""}: ${win.widthCm} cm \xD7 ${win.heightCm} cm = ${formatAreaM2(win.area)} m\xB2`;
+    const space = estimate?.spaces[i];
+    const pricingPart = space ? ` \xB7 ${space.spaceTypeLabel} \xB7 ${space.faces} ${space.faces === 1 ? "cara" : "caras"} \xB7 ${formatMeters(space.linearMeters)} ml \xB7 pilares ${space.autoPillars} autom\xE1tico(s) + ${space.extraPillars} extra` : "";
+    return `${label}${win.name && win.name !== label ? ` (${win.name})` : ""}: ${win.widthCm} cm \xD7 ${win.heightCm} cm${pricingPart}`;
   });
+  const estimateLines = estimate ? [
+    `Malla: ${estimate.mesh.label} a ${formatCLP(estimate.mesh.pricePerMeter)} por metro lineal`,
+    `Metros lineales facturables: ${formatMeters(estimate.totalLinearMeters)} ml`,
+    `Subtotal malla: ${formatCLP(estimate.meshSubtotal)}`,
+    `Pilares: ${estimate.autoPillars} autom\xE1tico(s) + ${estimate.extraPillars} extra \xD7 ${formatCLP(estimate.pillarPrice)} = ${formatCLP(estimate.pillarSubtotal)}`,
+    `Total estimado: ${formatCLP(estimate.total)}`,
+    `Abono inicial (${formatPercent(estimate.depositPercent)}): ${formatCLP(estimate.deposit)}`,
+    `Saldo al finalizar: ${formatCLP(estimate.balance)}`
+  ] : ["Estimaci\xF3n referencial: no disponible (tarifas sin configurar)."];
   const summary = [
-    "Solicitud guiada (sin precio; medidas por rangos). Las medidas por ventana son las ingresadas por el cliente.",
+    "Solicitud guiada con estimaci\xF3n referencial calculada en el servidor. Las medidas son las ingresadas por el cliente.",
     `Regi\xF3n: ${guided.regionName}`,
     `Comuna: ${guided.commune}`,
     `Trabajo: ${labelOf(WORK_TYPE_OPTIONS, guided.workType)}`,
@@ -862,7 +1019,8 @@ function buildGuidedQuoteRecord(body, ownerEmail, ownerName) {
     `Comunicaciones comerciales: ${guided.commercialOptIn ? "s\xED" : "no"}`,
     `Cantidad: ${parsedWindows.windows.length}`,
     `Superficie total: ${formatAreaM2(parsedWindows.totalAreaM2)} m\xB2`,
-    ...windowLines
+    ...windowLines,
+    ...estimateLines
   ].join("\n");
   const id = String(body.clientRequestId || "").trim() || `gq-${Date.now()}`;
   const year = (/* @__PURE__ */ new Date()).getFullYear();
@@ -921,6 +1079,23 @@ var WHATSAPP_QUOTE_URL = whatsappQuoteUrl();
 
 // src/services/emailFormatter.ts
 var COMPANY_NOTIFICATION_EMAIL = "nydo.mallas@gmail.com";
+function estimateTextLines(quote) {
+  const e = quote.guidedQuote?.estimate;
+  if (!e) return [];
+  return [
+    ` \u2022 Metros lineales facturables: ${formatMeters(e.totalLinearMeters)} ml ((ancho + alto) \xD7 caras)`,
+    ` \u2022 Malla seleccionada         : ${e.mesh.label} a ${formatCLP(e.mesh.pricePerMeter)} por metro lineal`,
+    ` \u2022 Subtotal de malla          : ${formatCLP(e.meshSubtotal)}`,
+    ` \u2022 Pilares                    : ${e.autoPillars} autom\xE1tico(s) + ${e.extraPillars} extra \xD7 ${formatCLP(e.pillarPrice)} = ${formatCLP(e.pillarSubtotal)}`,
+    ` \u2022 Total estimado             : ${formatCLP(e.total)}`,
+    ` \u2022 Abono inicial (${formatPercent(e.depositPercent)})     : ${formatCLP(e.deposit)}`,
+    ` \u2022 Saldo al finalizar         : ${formatCLP(e.balance)}`,
+    "",
+    "C\xF3mo se calcula el valor:",
+    ...estimateNarrative(e).map((line, i) => ` ${i + 1}. ${line}`),
+    ` \u2022 ${ESTIMATE_DISCLAIMER}`
+  ];
+}
 function generateFormattedQuoteSubject(quote, _recipient) {
   return `Solicitud de cotizaci\xF3n ${quote.folio} recibida`;
 }
@@ -950,7 +1125,7 @@ function generateFormattedQuoteEmailText(quote, recipient) {
       "Tu requerimiento ha sido registrado con \xE9xito en nuestro sistema y est\xE1 en proceso de revisi\xF3n.",
       "",
       "\u2022 NOTA SOBRE EL PRECIO:",
-      "En esta instancia no se incluye ning\xFAn precio autom\xE1tico o referencial.",
+      quote.guidedQuote?.estimate ? "Incluimos una estimaci\xF3n referencial calculada con tus medidas (ver secci\xF3n 4). El valor final se confirma en la evaluaci\xF3n t\xE9cnica." : "En esta instancia no se incluye un precio referencial.",
       "Nuestro equipo t\xE9cnico de Nydo Mallas evaluar\xE1 las medidas de tus ventanas, el tipo de malla",
       "y las condiciones de instalaci\xF3n para formular tu presupuesto formal y coordinar la fecha definitiva.",
       ""
@@ -961,7 +1136,7 @@ function generateFormattedQuoteEmailText(quote, recipient) {
       " NOTA INTERNA DE RECEPCI\xD3N (ADMIN)",
       "------------------------------------------------------------",
       `Nueva cotizaci\xF3n solicitada por el cliente ${quote.clientName}.`,
-      "\u2022 AVISO: No se ha colocado ning\xFAn precio al cliente; \xFAnicamente se le notific\xF3 que est\xE1 cotizando.",
+      quote.guidedQuote?.estimate ? `\u2022 AVISO: El cliente vio una estimaci\xF3n referencial de ${formatCLP(quote.guidedQuote.estimate.total)}. El valor final lo fija el administrador.` : "\u2022 AVISO: No se ha colocado ning\xFAn precio al cliente; \xFAnicamente se le notific\xF3 que est\xE1 cotizando.",
       "\u2022 ACCI\xD3N: El administrador debe ingresar a la Pantalla de Recepci\xF3n para evaluar las medidas,",
       "fijar el valor oficial y coordinar la cuadrilla t\xE9cnica.",
       ""
@@ -1028,7 +1203,8 @@ function generateFormattedQuoteEmailText(quote, recipient) {
     ` \u2022 Cantidad Total de ${balcony ? "Pa\xF1os" : "Ventanas"} : ${quote.windows.length}`,
     ` \u2022 Superficie Total Solicitada: ${formatAreaM2(quote.totalAreaM2)} m\xB2`,
     " \u2022 Las medidas ingresadas son referenciales y deber\xE1n confirmarse antes de la instalaci\xF3n.",
-    " \u2022 Estado del Presupuesto     : EN PROCESO DE COTIZACI\xD3N (Sin precio previo emitido)",
+    ...estimateTextLines(quote),
+    quote.guidedQuote?.estimate ? " \u2022 Estado del Presupuesto     : EN PROCESO DE COTIZACI\xD3N (estimaci\xF3n referencial, valor final por confirmar)" : " \u2022 Estado del Presupuesto     : EN PROCESO DE COTIZACI\xD3N (Sin precio previo emitido)",
     recipient === "client" ? " \u2022 Pr\xF3ximo Paso               : Un asesor t\xE9cnico revisar\xE1 tus medidas y te contactar\xE1 para confirmar tu cotizaci\xF3n formal." : " \u2022 Pr\xF3ximo Paso               : Fijar el presupuesto en Recepci\xF3n (Admin) y asignar t\xE9cnico instalador.",
     "",
     "------------------------------------------------------------",
@@ -1049,7 +1225,7 @@ function generateFormattedQuoteEmailText(quote, recipient) {
   );
   return lines.filter((line) => line !== void 0).join("\n");
 }
-function formatCLP(amount) {
+function formatCLP2(amount) {
   return new Intl.NumberFormat("es-CL", {
     style: "currency",
     currency: "CLP",
@@ -1061,7 +1237,7 @@ function generatePricedQuoteSubject(quote) {
 }
 function generatePricedQuoteEmailText(quote, recipient) {
   const adminQuote = quote.adminQuote;
-  const total = adminQuote ? formatCLP(adminQuote.total) : "A coordinar";
+  const total = adminQuote ? formatCLP2(adminQuote.total) : "A coordinar";
   const greeting = recipient === "client" ? `Estimado/a ${quote.clientName}:` : `Copia interna. Presupuesto enviado a ${quote.clientName} <${quote.clientEmail}>.`;
   const windowLines = (quote.windows || []).map((win, i) => {
     const width = win.widthCm ?? Math.round((win.width || 0) * 100);
@@ -1072,10 +1248,10 @@ function generatePricedQuoteEmailText(quote, recipient) {
     adminQuote && (adminQuote.profilesAndFixingsCost > 0 || adminQuote.laborAndInstallCost > 0 || adminQuote.meshTotalCost > 0 && adminQuote.meshTotalCost !== adminQuote.total)
   );
   const valueLines = adminQuote ? [
-    hasBreakdown ? ` \u2022 Malla y anclajes: ${formatCLP(adminQuote.meshTotalCost)}` : "",
-    hasBreakdown ? ` \u2022 Perfiles y fijaciones: ${formatCLP(adminQuote.profilesAndFixingsCost)}` : "",
-    hasBreakdown ? ` \u2022 Mano de obra e instalaci\xF3n: ${formatCLP(adminQuote.laborAndInstallCost)}` : "",
-    adminQuote.discountAmount > 0 ? ` \u2022 Descuento (${adminQuote.discountPercentage}%): -${formatCLP(adminQuote.discountAmount)}` : "",
+    hasBreakdown ? ` \u2022 Malla y anclajes: ${formatCLP2(adminQuote.meshTotalCost)}` : "",
+    hasBreakdown ? ` \u2022 Perfiles y fijaciones: ${formatCLP2(adminQuote.profilesAndFixingsCost)}` : "",
+    hasBreakdown ? ` \u2022 Mano de obra e instalaci\xF3n: ${formatCLP2(adminQuote.laborAndInstallCost)}` : "",
+    adminQuote.discountAmount > 0 ? ` \u2022 Descuento (${adminQuote.discountPercentage}%): -${formatCLP2(adminQuote.discountAmount)}` : "",
     ` \u2022 TOTAL: ${total}`
   ].filter(Boolean).join("\n") : " \u2022 El importe se coordinar\xE1 con el cliente.";
   return [
@@ -1115,7 +1291,7 @@ function formatWhen(iso) {
     timeStyle: "short"
   });
 }
-function formatCLP2(amount) {
+function formatCLP3(amount) {
   return new Intl.NumberFormat("es-CL", {
     style: "currency",
     currency: "CLP",
@@ -1245,10 +1421,37 @@ function ctaBlock() {
 </table>
 <p style="margin:12px 0 0 0;font-size:12px;color:#6b8494;">O responde este correo \xB7 ${esc(CONTACT_EMAIL)}</p>`;
 }
+function estimateBlock(quote) {
+  const e = quote.guidedQuote?.estimate;
+  if (!e) return "";
+  const spaceRows = e.spaces.map(
+    (s) => infoRow(
+      `${s.label} \xB7 ${s.spaceTypeLabel}`,
+      `(${formatMeters(s.widthCm / 100)} + ${formatMeters(s.heightCm / 100)}) \xD7 ${s.faces} = ${formatMeters(s.linearMeters)} ml${s.autoPillars + s.extraPillars > 0 ? ` \xB7 pilares: ${s.autoPillars} autom\xE1tico + ${s.extraPillars} extra` : ""}`
+    )
+  ).join("");
+  return `${sectionTitle("Estimaci\xF3n referencial")}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  ${spaceRows}
+  ${infoRow("Metros lineales facturables", `${formatMeters(e.totalLinearMeters)} ml`)}
+  ${infoRow("Malla seleccionada", `${e.mesh.label} \xB7 ${formatCLP3(e.mesh.pricePerMeter)} por metro lineal`)}
+  ${infoRow("Subtotal de malla", formatCLP3(e.meshSubtotal))}
+  ${infoRow("Pilares", `${e.totalPillars} \xD7 ${formatCLP3(e.pillarPrice)} = ${formatCLP3(e.pillarSubtotal)}`)}
+  ${infoRow("Total estimado", formatCLP3(e.total))}
+  ${infoRow(`Abono inicial (${formatPercent(e.depositPercent)})`, formatCLP3(e.deposit))}
+  ${infoRow("Saldo al finalizar", formatCLP3(e.balance))}
+</table>
+<p style="margin:12px 0 0 0;font-size:13px;font-weight:700;color:#1f2d3a;">C\xF3mo se calcula el valor</p>
+<ol style="margin:8px 0 0 18px;padding:0;font-size:13px;line-height:1.55;color:#1f2d3a;">
+  ${estimateNarrative(e).map((line) => `<li style="margin:0 0 6px 0;">${esc(line)}</li>`).join("")}
+</ol>
+<p style="margin:10px 0 0 0;font-size:12px;line-height:1.5;color:#6b8494;">${esc(LINEAR_RULE_NOTE)} ${esc(ESTIMATE_DISCLAIMER)}</p>`;
+}
 function requestInner(quote, recipient) {
+  const estimate = quote.guidedQuote?.estimate;
   const heading = recipient === "company" ? "Nueva solicitud de cotizaci\xF3n" : "Recibimos tu solicitud de cotizaci\xF3n";
-  const intro = recipient === "company" ? `El cliente ${quote.clientName} ingres\xF3 una solicitud. Revisa las medidas, emite el presupuesto en Recepci\xF3n y coordina la instalaci\xF3n. En este aviso no hay precio para el cliente.` : `Hola ${quote.clientName}: un asesor revisar\xE1 tus medidas y te enviar\xE1 la cotizaci\xF3n formal. En esta instancia no incluimos precios autom\xE1ticos ni referenciales.`;
-  const status = recipient === "company" ? "En proceso \xB7 Sin precio emitido \xB7 Acci\xF3n: evaluar en Recepci\xF3n" : "En proceso de cotizaci\xF3n \xB7 Sin precio emitido";
+  const intro = recipient === "company" ? `El cliente ${quote.clientName} ingres\xF3 una solicitud. Revisa las medidas, emite el presupuesto en Recepci\xF3n y coordina la instalaci\xF3n.${estimate ? " El cliente vio la estimaci\xF3n referencial que aparece abajo." : " En este aviso no hay precio para el cliente."}` : estimate ? `Hola ${quote.clientName}: abajo est\xE1 la estimaci\xF3n referencial calculada con tus medidas. Un asesor revisar\xE1 los datos en la evaluaci\xF3n t\xE9cnica y te enviar\xE1 la cotizaci\xF3n formal con el valor final.` : `Hola ${quote.clientName}: un asesor revisar\xE1 tus medidas y te enviar\xE1 la cotizaci\xF3n formal.`;
+  const status = estimate ? `En proceso \xB7 Estimaci\xF3n referencial ${formatCLP3(estimate.total)} \xB7 Valor final por confirmar` : recipient === "company" ? "En proceso \xB7 Sin precio emitido \xB7 Acci\xF3n: evaluar en Recepci\xF3n" : "En proceso de cotizaci\xF3n \xB7 Sin precio emitido";
   return `
   <!-- MENSAJE PRINCIPAL -->
   <tr>
@@ -1272,6 +1475,7 @@ function requestInner(quote, recipient) {
   <tr>
     <td style="padding:24px 32px 8px 32px;">${measuresTable(quote)}</td>
   </tr>
+  ${estimate ? `<tr><td style="padding:24px 32px 8px 32px;">${estimateBlock(quote)}</td></tr>` : ""}
   <tr>
     <td style="padding:24px 32px 32px 32px;">
       ${sectionTitle("Siguiente paso")}
@@ -1287,15 +1491,15 @@ function pricedInner(quote, recipient) {
   const hasBreakdown = Boolean(
     admin2 && (admin2.profilesAndFixingsCost > 0 || admin2.laborAndInstallCost > 0 || admin2.meshTotalCost > 0 && admin2.meshTotalCost !== admin2.total)
   );
-  const valueRows = admin2 ? `${hasBreakdown ? infoRow("Malla y anclajes", formatCLP2(admin2.meshTotalCost)) : ""}
-       ${hasBreakdown ? infoRow("Perfiles y fijaciones", formatCLP2(admin2.profilesAndFixingsCost)) : ""}
-       ${hasBreakdown ? infoRow("Mano de obra e instalaci\xF3n", formatCLP2(admin2.laborAndInstallCost)) : ""}
-       ${admin2.discountAmount > 0 ? infoRow(`Descuento (${admin2.discountPercentage}%)`, `-${formatCLP2(admin2.discountAmount)}`) : ""}
-       ${infoRow("Total", formatCLP2(admin2.total))}
+  const valueRows = admin2 ? `${hasBreakdown ? infoRow("Malla y anclajes", formatCLP3(admin2.meshTotalCost)) : ""}
+       ${hasBreakdown ? infoRow("Perfiles y fijaciones", formatCLP3(admin2.profilesAndFixingsCost)) : ""}
+       ${hasBreakdown ? infoRow("Mano de obra e instalaci\xF3n", formatCLP3(admin2.laborAndInstallCost)) : ""}
+       ${admin2.discountAmount > 0 ? infoRow(`Descuento (${admin2.discountPercentage}%)`, `-${formatCLP3(admin2.discountAmount)}`) : ""}
+       ${infoRow("Total", formatCLP3(admin2.total))}
        ${infoRow("Garant\xEDa", `${admin2.warrantyYears} a\xF1os`)}
        ${infoRow("Tiempo estimado", admin2.estimatedTime)}
        ${admin2.adminNotes ? infoRow("Observaciones", admin2.adminNotes) : ""}` : infoRow("Valor", "A coordinar");
-  const total = admin2 ? formatCLP2(admin2.total) : "A coordinar";
+  const total = admin2 ? formatCLP3(admin2.total) : "A coordinar";
   return `
   <tr>
     <td style="padding:32px 32px 8px 32px;">
@@ -1527,6 +1731,63 @@ async function sendQuoteRequestEmail(quote, kind = "request") {
   }
 }
 
+// server/pricing.ts
+function mapRate(row) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    label: row.label,
+    unit: row.unit,
+    amount: Number(row.amount),
+    sort: Number(row.sort) || 0,
+    updatedAt: row.updated_at,
+    updatedBy: row.updated_by
+  };
+}
+async function loadPricingRates() {
+  const db = requireAdminClient();
+  const { data, error } = await db.from("pricing_rates").select("*").eq("active", true).order("sort");
+  if (error) {
+    throw new Error(
+      /pricing_rates/.test(error.message) ? "Las tarifas a\xFAn no est\xE1n configuradas en la base de datos." : error.message
+    );
+  }
+  return (data || []).map(mapRate);
+}
+async function loadPricingConfig() {
+  const config = rowsToPricingConfig(await loadPricingRates());
+  if (!config) throw new Error("Faltan tarifas de malla, pilar o abono en la base de datos.");
+  return config;
+}
+function validateRateAmount(rate, amount) {
+  if (!Number.isFinite(amount) || amount < 0) return `${rate.label}: ingresa un valor v\xE1lido.`;
+  if (rate.kind === "deposit") {
+    if (amount > 100) return `${rate.label}: el porcentaje debe estar entre 0 y 100.`;
+    return null;
+  }
+  if (!Number.isInteger(amount)) return `${rate.label}: usa pesos enteros, sin decimales.`;
+  if (amount <= 0) return `${rate.label}: el precio debe ser mayor a cero.`;
+  return null;
+}
+async function updatePricingRates(updates, actorEmail) {
+  const current = await loadPricingRates();
+  const byId = new Map(current.map((r) => [r.id, r]));
+  for (const update of updates) {
+    const rate = byId.get(update.id);
+    if (!rate) throw new Error("Una de las tarifas no existe.");
+    const problem = validateRateAmount(rate, update.amount);
+    if (problem) throw new Error(problem);
+  }
+  const db = requireAdminClient();
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  for (const update of updates) {
+    if (byId.get(update.id).amount === update.amount) continue;
+    const { error } = await db.from("pricing_rates").update({ amount: update.amount, updated_at: now, updated_by: actorEmail }).eq("id", update.id);
+    if (error) throw new Error(error.message);
+  }
+  return loadPricingRates();
+}
+
 // server/apiRoutes.ts
 var contactAttempts = /* @__PURE__ */ new Map();
 var syncLocks = /* @__PURE__ */ new Set();
@@ -1647,6 +1908,26 @@ function mountApiRoutes(app) {
     const refreshed = await resolveRole(current.email, current.name);
     res.json({ user: sessionToAccount(refreshed) });
   });
+  app.get("/api/pricing", async (_req, res) => {
+    try {
+      const rates = await loadPricingRates();
+      res.json({ rates });
+    } catch (err) {
+      res.status(503).json({ error: err?.message || "No pudimos cargar las tarifas." });
+    }
+  });
+  app.put("/api/pricing", requireSession, requirePrincipalAdmin, async (req, res) => {
+    try {
+      const user = getSessionUser(req);
+      const raw = Array.isArray(req.body?.rates) ? req.body.rates : [];
+      const updates = raw.map((r) => ({ id: String(r?.id || ""), amount: Number(r?.amount) }));
+      if (!updates.length) return res.status(400).json({ error: "No hay tarifas para guardar." });
+      const rates = await updatePricingRates(updates, user.email);
+      res.json({ rates, message: "Tarifas guardadas. Las nuevas cotizaciones usar\xE1n estos valores." });
+    } catch (err) {
+      res.status(400).json({ error: err?.message || "No pudimos guardar las tarifas." });
+    }
+  });
   app.post("/api/quotes/guided", async (req, res) => {
     try {
       const ip = clientIp(req);
@@ -1657,10 +1938,19 @@ function mountApiRoutes(app) {
       }
       const error = validateGuidedQuote(req.body || {});
       if (error) return res.status(400).json({ error });
+      let pricing = null;
+      try {
+        pricing = await loadPricingConfig();
+      } catch (pricingError) {
+        console.warn("[pricing] Solicitud guardada sin estimaci\xF3n:", pricingError?.message);
+      }
+      if (pricing && !pricing.meshes.some((m) => m.id === req.body?.meshId)) {
+        return res.status(400).json({ error: "Elige el grosor de la malla." });
+      }
       const db = requireAdminClient();
       const ownerEmail = String(req.body?.email || "").trim().toLowerCase();
       const ownerName = String(req.body?.name || "").trim();
-      const quote = buildGuidedQuoteRecord(req.body || {}, ownerEmail, ownerName);
+      const quote = buildGuidedQuoteRecord(req.body || {}, ownerEmail, ownerName, pricing);
       const { data: existing } = await db.from("quotes").select("*").eq("id", quote.id).maybeSingle();
       if (existing) {
         return res.json({ quote: mapQuoteRow(existing), message: "Solicitud ya registrada." });

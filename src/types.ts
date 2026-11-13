@@ -6,6 +6,8 @@ import type {
   TimelineType,
   WorkType,
 } from './constants/guidedQuote';
+import type { QuoteEstimate, SpaceType } from './utils/quotePricing';
+import type { BudgetResult } from './utils/installationBudget';
 
 export type MeshType = 'monofilamento' | 'multifilamento';
 
@@ -22,6 +24,13 @@ export interface GuidedQuoteDetails {
   timeline: TimelineType;
   acceptedTerms: boolean;
   commercialOptIn: boolean;
+  meshId?: string;
+  /** Recalculated on the server with the rates in force when the request was saved. */
+  estimate?: QuoteEstimate;
+  /** Cálculo de instalación congelado con los parámetros y el margen vigentes al emitirla. */
+  installationBudget?: BudgetResult;
+  budgetIncident?: { at: string; message: string };
+  clientMail?: { to: string; sentAt: string; status: 'enviado' | 'rebotado' };
 }
 
 export type PropertyType = 'departamento' | 'casa' | 'oficina' | 'otro';
@@ -72,6 +81,9 @@ export interface WindowItem {
   order?: number;
   widthCm?: number;
   heightCm?: number;
+  spaceType?: SpaceType;
+  faces?: number;
+  extraPillars?: number;
 }
 
 export type ScheduleOption = 'opcion_1' | 'opcion_2' | 'personalizada';

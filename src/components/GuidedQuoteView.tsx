@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Trash2 } from 'lucide-react';
 import { QuoteRequest, UserAccount, WindowItem } from '../types';
 import { CONTACT_PHONE_DISPLAY, WHATSAPP_QUOTE_URL } from '../constants/contact';
-import { CHILE_REGIONS, getRegionByCode } from '../constants/chileRegions';
+import { OFFERED_CHILE_REGIONS, getRegionByCode } from '../constants/chileRegions';
 import {
   FINISH_HELP,
   FINISH_OPTIONS,
@@ -29,7 +29,6 @@ import {
   type GuidedQuoteDraft,
 } from '../services/guidedQuoteDraft';
 import {
-  areaM2FromCm,
   emptyWindowDraft,
   isBalconySurface,
   itemNoun,
@@ -38,9 +37,29 @@ import {
   windowHasData,
   type WindowMeasureDraft,
 } from '../utils/windowMeasures';
+import {
+  MAX_EXTRA_PILLARS,
+  MAX_FACES,
+  SPACE_TYPE_OPTIONS,
+  defaultSpaceTypeForSurface,
+  parseWholeNumber,
+  rowsToPricingConfig,
+  type PricingConfig,
+  type QuoteEstimate,
+  type SpaceType,
+} from '../utils/quotePricing';
+import {
+  ESTIMATE_FOOTNOTE,
+  ESTIMATE_NEXT_STEP,
+  ESTIMATE_VALIDITY_DAYS,
+  clientTotalLine,
+  formatBudgetQty,
+  type BudgetResult,
+} from '../utils/installationBudget';
+import { fetchPricingRates } from '../services/pricingApi';
 import { HelpModal } from './HelpModal';
 import { OptionCard } from './OptionCard';
-import { WindowsMeasureTable, type WindowMeasureRow } from './WindowsMeasureTable';
+import { WindowsMeasureTable } from './WindowsMeasureTable';
 
 interface GuidedQuoteViewProps {
   currentUser: UserAccount | null;
@@ -69,6 +88,11 @@ type GuidedReceipt = {
   totalAreaM2: number;
   mailSent: boolean;
   clientEmail: string;
+  clientName: string;
+  clientPhone: string;
+  commercial: string;
+  budget?: BudgetResult;
+  estimate?: QuoteEstimate;
 };
 
 function formatReceiptDate(iso: string): string {
@@ -107,6 +131,11 @@ function buildReceipt(
     totalAreaM2: quote.totalAreaM2 || 0,
     mailSent,
     clientEmail: quote.clientEmail || draft.email,
+    clientName: quote.clientName || draft.name,
+    clientPhone: quote.clientPhone || draft.phone,
+    commercial: guided?.commercialOptIn ? 'Sí' : 'No',
+    budget: guided?.installationBudget,
+    estimate: guided?.estimate,
   };
 }
 
@@ -122,14 +151,19 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
 }) => {
   const [draft, setDraft] = useState<GuidedQuoteDraft>(() => {
     const loaded = loadGuidedDraft();
-    if (currentUser) {
-      return {
-        ...loaded,
-        name: loaded.name || currentUser.fullName || '',
-        email: loaded.email || currentUser.email || '',
-      };
+    const withUser = currentUser
+      ? {
+          ...loaded,
+          name: loaded.name || currentUser.fullName || '',
+          email: loaded.email || currentUser.email || '',
+        }
+      : loaded;
+    const offeredCodes = new Set(OFFERED_CHILE_REGIONS.map((region) => region.code));
+    if (withUser.regionCode && offeredCodes.has(withUser.regionCode)) return withUser;
+    if (OFFERED_CHILE_REGIONS.length === 1) {
+      return { ...withUser, regionCode: OFFERED_CHILE_REGIONS[0].code, commune: '' };
     }
-    return loaded;
+    return { ...withUser, regionCode: '', commune: '' };
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [help, setHelp] = useState<HelpKind>(null);
@@ -139,31 +173,44 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const communes = useMemo(
-    () => getRegionByCode(draft.regionCode)?.communes || [],
+    () => OFFERED_CHILE_REGIONS.find((region) => region.code === draft.regionCode)?.communes || [],
     [draft.regionCode]
   );
   const regionName = getRegionByCode(draft.regionCode)?.name || '';
   const balcony = isBalconySurface(draft.surfaceType);
-  const liveWindowRows: WindowMeasureRow[] = useMemo(
-    () =>
-      draft.windows.map((win, index) => {
-        const widthCm = parsePositiveCm(win.widthCm);
-        const heightCm = parsePositiveCm(win.heightCm);
-        return {
-          id: win.id,
-          label: itemTitle(draft.surfaceType, index),
-          location: win.name.trim() || '—',
-          widthCm,
-          heightCm,
-          area: widthCm != null && heightCm != null ? areaM2FromCm(widthCm, heightCm) : null,
-        };
-      }),
-    [draft.windows, draft.surfaceType]
-  );
+
+  const [pricing, setPricing] = useState<PricingConfig | null>(null);
+  const [pricingState, setPricingState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPricingRates()
+      .then((rates) => {
+        if (cancelled) return;
+        const config = rowsToPricingConfig(rates);
+        setPricing(config);
+        setPricingState(config ? 'ready' : 'unavailable');
+      })
+      .catch(() => {
+        if (!cancelled) setPricingState('unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     saveGuidedDraft(draft);
   }, [draft]);
+
+  useEffect(() => {
+    if (draft.step !== 9 || !draft.windows.some((win) => !win.spaceType)) return;
+    const fallback = defaultSpaceTypeForSurface(draft.surfaceType);
+    setDraft((prev) => ({
+      ...prev,
+      windows: prev.windows.map((win) => (win.spaceType ? win : { ...win, spaceType: fallback })),
+    }));
+  }, [draft.step, draft.windows, draft.surfaceType]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -215,7 +262,15 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
         if (parsePositiveCm(win.heightCm) == null) {
           next[`height-${win.id}`] = `${title}: ingresa un alto mayor a cero.`;
         }
+        if (!win.spaceType) next[`type-${win.id}`] = `${title}: elige el tipo de espacio.`;
+        if (parseWholeNumber(win.faces, 1, MAX_FACES) == null) {
+          next[`faces-${win.id}`] = `${title}: las caras deben ser un número entero entre 1 y ${MAX_FACES}.`;
+        }
+        if (parseWholeNumber(win.extraPillars || '0', 0, MAX_EXTRA_PILLARS) == null) {
+          next[`pillars-${win.id}`] = `${title}: los pilares extra deben ser un número entero entre 0 y ${MAX_EXTRA_PILLARS}.`;
+        }
       });
+      if (pricing && !draft.meshId) next.meshId = 'Elige el grosor de la malla.';
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -242,7 +297,10 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
   };
 
   const addWindow = () => {
-    setDraft((prev) => ({ ...prev, windows: [...prev.windows, emptyWindowDraft()] }));
+    setDraft((prev) => ({
+      ...prev,
+      windows: [...prev.windows, emptyWindowDraft(defaultSpaceTypeForSurface(prev.surfaceType))],
+    }));
     setErrors({});
     setConfirmDeleteId(null);
   };
@@ -250,7 +308,10 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
   const removeWindow = (id: string) => {
     setDraft((prev) => {
       const next = prev.windows.filter((win) => win.id !== id);
-      return { ...prev, windows: next.length ? next : [emptyWindowDraft()] };
+      return {
+        ...prev,
+        windows: next.length ? next : [emptyWindowDraft(defaultSpaceTypeForSurface(prev.surfaceType))],
+      };
     });
     setConfirmDeleteId(null);
     setErrors({});
@@ -288,11 +349,15 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
           phone: draft.phone.trim(),
           acceptedTerms: draft.acceptedTerms,
           commercialOptIn: draft.commercialOptIn,
+          meshId: draft.meshId || undefined,
           windows: draft.windows.map((win) => ({
             id: win.id,
             name: win.name.trim(),
             widthCm: win.widthCm,
             heightCm: win.heightCm,
+            spaceType: win.spaceType,
+            faces: win.faces,
+            extraPillars: win.extraPillars || '0',
           })),
         }),
       });
@@ -309,15 +374,21 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
 
   if (success) {
     const rows: { label: string; value: string }[] = [
-      { label: 'Trabajo a realizar', value: 'Mallas de protección' },
-      { label: 'Fecha estimada del proyecto', value: success.timeline },
-      { label: '¿Qué necesitas?', value: success.workType },
+      { label: 'Nombre', value: success.clientName },
+      { label: 'Teléfono', value: success.clientPhone || 'No indicado' },
+      { label: 'Correo', value: success.clientEmail },
+      { label: 'Región', value: success.regionName || 'No indicada' },
+      { label: 'Comuna', value: success.commune || 'No indicada' },
+      { label: 'Dirección', value: 'No indicada' },
+      { label: 'Tipo de inmueble', value: 'No indicado' },
       { label: 'Tipo de superficie', value: success.surfaceType },
-      { label: '¿Longitud de la malla?', value: success.lengthRange },
-      { label: '¿Altura de la malla?', value: success.heightRange },
-      { label: 'Tipo de acabado', value: success.finish },
-      { label: 'Ubicación aproximada', value: `Mallas de protección en ${success.commune}` },
+      { label: 'Acabado', value: success.finish },
+      { label: 'Plazo preferente', value: success.timeline },
+      { label: 'Observaciones', value: 'Sin observaciones' },
+      { label: 'Comunicaciones comerciales', value: success.commercial },
     ];
+    const budget = success.budget;
+    const totalLine = clientTotalLine(budget || { available: false, reason: 'tarifas' });
 
     return (
       <section className="max-w-5xl mx-auto pb-16 space-y-4 font-body text-nydo-ink">
@@ -326,7 +397,9 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
           <span>
             Recibimos tu solicitud de cotización de mallas de protección.
             {success.mailSent
-              ? ` Enviamos un correo a nydo.mallas@gmail.com y otro a ${success.clientEmail}.`
+              ? success.clientEmail.toLowerCase() === 'nydo.mallas@gmail.com'
+                ? ` Enviamos la estimación a ${success.clientEmail}.`
+                : ` Enviamos un correo a nydo.mallas@gmail.com y otro a ${success.clientEmail}.`
               : ' La solicitud quedó registrada. Si el correo no llega, te contactamos por WhatsApp o teléfono.'}
           </span>
         </div>
@@ -355,9 +428,7 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
             </dl>
 
             <div className="space-y-2">
-              <h2 className="text-sm font-black text-slate-900">
-                {success.balcony ? 'Paños y medidas' : 'Ventanas y medidas'}
-              </h2>
+              <h2 className="text-sm font-black text-slate-900">Detalle de ventanas</h2>
               <WindowsMeasureTable
                 rows={success.windows.map((win, index) => ({
                   id: win.id,
@@ -367,13 +438,28 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
                   heightCm: win.heightCm ?? win.height * 100,
                   area: win.area,
                 }))}
-                itemHeader={success.balcony ? 'Paño' : 'Ventana'}
+                itemHeader="Ventana / Ubicación"
               />
-              <p className="text-xs text-slate-500">
-                Las medidas ingresadas son referenciales y deberán confirmarse antes de la instalación.
-              </p>
             </div>
-            <p className="text-xs text-slate-500">{TIMELINE_DISCLAIMER}</p>
+            <div className="rounded-2xl bg-sky-50 border border-sky-200 px-4 py-4 space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-sky-800">Estimación referencial</p>
+              {budget?.available ? (
+                <>
+                  <p className="text-sm text-slate-700">
+                    {budget.meshLabel}. Pilares considerados: {formatBudgetQty(budget.pillarCount)}.
+                  </p>
+                  <p className="text-xl font-black text-slate-900">{totalLine}</p>
+                  <p className="text-sm text-slate-600">Vigencia de la estimación: {ESTIMATE_VALIDITY_DAYS} días.</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-slate-900">{totalLine}</p>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">{ESTIMATE_FOOTNOTE}</p>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Siguiente paso</p>
+              <p className="text-sm text-slate-700 mt-1">{ESTIMATE_NEXT_STEP}</p>
+            </div>
           </div>
 
           <aside className="space-y-4">
@@ -390,7 +476,7 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
                 href={WHATSAPP_QUOTE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-center px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                className="block text-center px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] leading-tight font-bold"
               >
                 WhatsApp {CONTACT_PHONE_DISPLAY}
               </a>
@@ -452,7 +538,7 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
                 className={fieldClass}
               >
                 <option value="">Selecciona una región</option>
-                {CHILE_REGIONS.map((region) => (
+                {OFFERED_CHILE_REGIONS.map((region) => (
                   <option key={region.code} value={region.code}>
                     {region.name}
                   </option>
@@ -697,6 +783,34 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
               + Cómo medir
             </button>
             <WindowSizeDiagram />
+
+            {pricingState === 'loading' && <p className="text-xs text-slate-500">Cargando tarifas referenciales…</p>}
+            {pricingState === 'unavailable' && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+                En este momento no podemos mostrar la estimación de precio. Puedes enviar tu solicitud igual y te
+                responderemos con el valor.
+              </p>
+            )}
+            {pricing && (
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-black text-slate-900">Grosor de la malla</legend>
+                <p className="text-xs text-slate-500">Por ahora la estimación referencial usa malla de 0,6 mm.</p>
+                <div role="radiogroup" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {pricing.meshes.map((mesh) => (
+                    <OptionCard
+                      key={mesh.id}
+                      name="meshId"
+                      value={mesh.id}
+                      label={mesh.label}
+                      checked={draft.meshId === mesh.id}
+                      onSelect={() => update({ meshId: mesh.id })}
+                    />
+                  ))}
+                </div>
+                {errors.meshId && <p className="text-xs font-semibold text-rose-600">{errors.meshId}</p>}
+              </fieldset>
+            )}
+
             <div className="space-y-3">
               {draft.windows.map((win, index) => (
                 <article key={win.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
@@ -736,6 +850,25 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
                         </button>
                       </div>
                     </div>
+                  )}
+                  <label className="block text-sm font-bold text-slate-700">
+                    Tipo de espacio
+                    <select
+                      value={win.spaceType}
+                      onChange={(e) => updateWindow(win.id, { spaceType: e.target.value as SpaceType })}
+                      className={fieldClass}
+                      aria-invalid={Boolean(errors[`type-${win.id}`])}
+                    >
+                      <option value="">Selecciona el tipo de espacio</option>
+                      {SPACE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {errors[`type-${win.id}`] && (
+                    <p className="text-xs font-semibold text-rose-600">{errors[`type-${win.id}`]}</p>
                   )}
                   <label className="block text-sm font-bold text-slate-700">
                     Nombre o ubicación <span className="font-medium text-slate-400">(opcional)</span>
@@ -782,6 +915,46 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
                   {errors[`height-${win.id}`] && (
                     <p className="text-xs font-semibold text-rose-600">{errors[`height-${win.id}`]}</p>
                   )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm font-bold text-slate-700">
+                      Caras
+                      <input
+                        type="number"
+                        min={1}
+                        max={MAX_FACES}
+                        step={1}
+                        inputMode="numeric"
+                        value={win.faces}
+                        onChange={(e) => updateWindow(win.id, { faces: e.target.value })}
+                        className={fieldClass}
+                        aria-invalid={Boolean(errors[`faces-${win.id}`])}
+                        aria-describedby={`faces-help-${win.id}`}
+                      />
+                      <span id={`faces-help-${win.id}`} className="mt-1 block text-[11px] font-medium text-slate-500">
+                        Lados del espacio que llevan malla.
+                      </span>
+                    </label>
+                    <label className="block text-sm font-bold text-slate-700">
+                      Cantidad de pilares
+                      <input
+                        type="number"
+                        min={0}
+                        max={MAX_EXTRA_PILLARS}
+                        step={1}
+                        inputMode="numeric"
+                        value={win.extraPillars}
+                        onChange={(e) => updateWindow(win.id, { extraPillars: e.target.value })}
+                        className={fieldClass}
+                        aria-invalid={Boolean(errors[`pillars-${win.id}`])}
+                      />
+                    </label>
+                  </div>
+                  {errors[`faces-${win.id}`] && (
+                    <p className="text-xs font-semibold text-rose-600">{errors[`faces-${win.id}`]}</p>
+                  )}
+                  {errors[`pillars-${win.id}`] && (
+                    <p className="text-xs font-semibold text-rose-600">{errors[`pillars-${win.id}`]}</p>
+                  )}
                 </article>
               ))}
             </div>
@@ -794,16 +967,10 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
             </button>
             {errors.windows && <p className="text-xs font-semibold text-rose-600">{errors.windows}</p>}
 
-            <div className="space-y-2 pt-1">
-              <h2 className="text-sm font-black text-slate-900">Resumen de medidas</h2>
-              <WindowsMeasureTable
-                rows={liveWindowRows}
-                itemHeader={balcony ? 'Paño' : 'Ventana'}
-              />
-              <p className="text-xs text-slate-500">
-                Las medidas ingresadas son referenciales y deberán confirmarse antes de la instalación.
-              </p>
-            </div>
+            <p className="text-xs text-slate-500">
+              Las medidas ingresadas son referenciales y deberán confirmarse antes de la instalación. La estimación
+              referencial aparece al enviar la solicitud.
+            </p>
             {submitError && <p className="text-sm font-semibold text-rose-600">{submitError}</p>}
           </div>
         )}

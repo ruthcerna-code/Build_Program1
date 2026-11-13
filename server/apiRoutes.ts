@@ -19,6 +19,12 @@ import { hashPassword } from './passwords';
 import { requireAdminClient } from './supabaseAdmin';
 import { buildGuidedQuoteRecord, guidedQuoteToDbRow, validateGuidedQuote } from './guidedQuote';
 import { sendInboxEmail, sendQuoteRequestEmail } from './sendQuoteMail';
+import { loadPricingConfig, loadPricingRates, updatePricingRates } from './pricing';
+import { attachInstallationBudget, loadBudgetSettings, loadMarginHistory, saveCostParameters, saveMargin } from './budgetConfig';
+import { configNotice, isNetworkFailure, probeSupabase } from './localConfig';
+import { readLocalQuotes, saveLocalQuote } from './localQuotes';
+import type { PricingConfig } from '../src/utils/quotePricing';
+import type { QuoteRequest } from '../src/types';
 
 const contactAttempts = new Map<string, number[]>();
 const syncLocks = new Set<string>();
@@ -85,6 +91,7 @@ function mapQuoteRow(row: any) {
     payments: row.payments || [],
     changeHistory: row.change_history || [],
     deletedAt: row.deleted_at,
+    emailDispatch: row.email_dispatch || undefined,
     ownerEmail: row.owner_email || row.client_email,
     quoteSource: row.quote_source || undefined,
     guidedQuote: row.guided_quote || undefined,
@@ -92,27 +99,48 @@ function mapQuoteRow(row: any) {
 }
 
 async function fetchVisibleQuotes(user: SessionUser, includeDeleted = false) {
-  const db = requireAdminClient();
-  let query = db.from('quotes').select('*').order('created_at', { ascending: false });
-  if (!includeDeleted) query = query.is('deleted_at', null);
+  let remote: QuoteRequest[] = [];
+  try {
+    const db = requireAdminClient();
+    let query = db.from('quotes').select('*').order('created_at', { ascending: false });
+    if (!includeDeleted) query = query.is('deleted_at', null);
 
-  if (user.role === 'cliente') {
-    query = query.or(`owner_email.eq.${user.email},client_email.eq.${user.email}`);
-  } else if (!canViewQuotes(user)) {
-    return [];
+    if (user.role === 'cliente') {
+      query = query.or(`owner_email.eq.${user.email},client_email.eq.${user.email}`);
+    } else if (!canViewQuotes(user)) {
+      return [];
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    remote = (data || []).map(mapQuoteRow);
+  } catch (err) {
+    if (!isNetworkFailure(err)) throw err;
+    remote = [];
   }
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data || []).map(mapQuoteRow);
+  const byId = new Map<string, QuoteRequest>();
+  for (const quote of readLocalQuotes()) {
+    if (!includeDeleted && quote.deletedAt) continue;
+    if (user.role === 'cliente' && quote.ownerEmail !== user.email && quote.clientEmail !== user.email) continue;
+    if (user.role !== 'cliente' && !canViewQuotes(user)) continue;
+    byId.set(quote.id, quote);
+  }
+  for (const quote of remote) byId.set(quote.id, quote);
+  return [...byId.values()].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 export function mountApiRoutes(app: Express) {
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
+    const supabaseReachable = await probeSupabase();
     res.json({
       status: 'ok',
       googleConfigured: false,
       supabaseAdmin: missingServerConfig().filter((x) => x.includes('SUPABASE')).length === 0,
+      supabaseReachable,
+      storage: supabaseReachable ? 'remote' : 'local',
       mailConfigured: !!RESEND_API_KEY,
       missing: missingServerConfig(),
       timestamp: new Date().toISOString(),
@@ -157,6 +185,70 @@ export function mountApiRoutes(app: Express) {
     res.json({ user: sessionToAccount(refreshed) });
   });
 
+  app.get('/api/pricing', async (_req, res) => {
+    try {
+      const rates = await loadPricingRates();
+      res.json({ rates, notice: configNotice() });
+    } catch (err: any) {
+      res.status(503).json({ error: err?.message || 'No pudimos cargar las tarifas.' });
+    }
+  });
+
+  app.put('/api/pricing', requireSession, requirePrincipalAdmin, async (req, res) => {
+    try {
+      const user = getSessionUser(req)!;
+      const raw = Array.isArray(req.body?.rates) ? req.body.rates : [];
+      const updates = raw.map((r: any) => ({ id: String(r?.id || ''), amount: Number(r?.amount) }));
+      if (!updates.length) return res.status(400).json({ error: 'No hay tarifas para guardar.' });
+      const rates = await updatePricingRates(updates, user.email);
+      res.json({ rates, message: 'Tarifas guardadas. Las nuevas cotizaciones usarán estos valores.' });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'No pudimos guardar las tarifas.' });
+    }
+  });
+
+  app.get('/api/commercial', requireSession, requirePrincipalAdmin, async (_req, res) => {
+    try {
+      const settings = await loadBudgetSettings();
+      const history = await loadMarginHistory();
+      if (!settings) {
+        return res.status(503).json({
+          error: 'No pudimos leer la configuración. Revisa la conexión con la base y la migración de parámetros.',
+        });
+      }
+      res.json({ ...settings, history, notice: configNotice() });
+    } catch (err: any) {
+      res.status(503).json({ error: err?.message || 'No pudimos leer los parámetros comerciales.' });
+    }
+  });
+
+  app.put('/api/commercial/margin', requireSession, requirePrincipalAdmin, async (req, res) => {
+    try {
+      const user = getSessionUser(req)!;
+      const value = Number(req.body?.value);
+      const margin = await saveMargin(value, user.email, req.body?.confirmLow === true);
+      const history = await loadMarginHistory();
+      res.json({ margin, history, message: 'Margen guardado. Solo afecta a las cotizaciones nuevas.' });
+    } catch (err: any) {
+      const status = err?.needsConfirm ? 409 : 400;
+      res.status(status).json({ error: err?.message || 'No pudimos guardar el margen.', needsConfirm: !!err?.needsConfirm });
+    }
+  });
+
+  app.put('/api/commercial/costs', requireSession, requirePrincipalAdmin, async (req, res) => {
+    try {
+      const user = getSessionUser(req)!;
+      const raw = Array.isArray(req.body?.parameters) ? req.body.parameters : [];
+      const parameters = await saveCostParameters(
+        raw.map((item: any) => ({ key: String(item?.key || ''), value: Number(item?.value) })),
+        user.email
+      );
+      res.json({ parameters, message: 'Parámetros de costo guardados. Las cotizaciones ya emitidas no cambian.' });
+    } catch (err: any) {
+      res.status(400).json({ error: err?.message || 'No pudimos guardar los parámetros de costo.' });
+    }
+  });
+
   app.post('/api/quotes/guided', async (req, res) => {
     try {
       const ip = clientIp(req);
@@ -168,37 +260,89 @@ export function mountApiRoutes(app: Express) {
       const error = validateGuidedQuote(req.body || {});
       if (error) return res.status(400).json({ error });
 
-      const db = requireAdminClient();
-      const ownerEmail = String(req.body?.email || '').trim().toLowerCase();
-      const ownerName = String(req.body?.name || '').trim();
-      const quote = buildGuidedQuoteRecord(req.body || {}, ownerEmail, ownerName);
-      const { data: existing } = await db.from('quotes').select('*').eq('id', quote.id).maybeSingle();
-      if (existing) {
-        return res.json({ quote: mapQuoteRow(existing), message: 'Solicitud ya registrada.' });
+      let pricing: PricingConfig | null = null;
+      try {
+        pricing = await loadPricingConfig();
+      } catch (pricingError: any) {
+        console.warn('[pricing] Sin tarifas en la base. La solicitud sigue y el correo se envía igual:', pricingError?.message);
+      }
+      if (pricing && !pricing.meshes.some((m) => m.id === req.body?.meshId)) {
+        return res.status(400).json({ error: 'Elige el grosor de la malla.' });
       }
 
-      const row = guidedQuoteToDbRow(quote);
-      const { data, error: insertError } = await db.from('quotes').insert(row).select('*').single();
-      if (insertError) {
-        const fallback = { ...row } as Record<string, unknown>;
-        delete fallback.guided_quote;
-        delete fallback.quote_source;
-        const retry = await db.from('quotes').insert(fallback).select('*').single();
-        if (retry.error) return res.status(400).json({ error: retry.error.message });
-        markContact(ip);
-        const mail = await sendQuoteRequestEmail(quote);
-        return res.json({
-          quote: mapQuoteRow(retry.data),
-          message: 'Solicitud guardada.',
-          mailSent: mail.sent,
-          mailError: mail.error || null,
-        });
+      const ownerEmail = String(req.body?.email || '').trim().toLowerCase();
+      const ownerName = String(req.body?.name || '').trim();
+      const quote = buildGuidedQuoteRecord(req.body || {}, ownerEmail, ownerName, pricing);
+      await attachInstallationBudget(quote);
+
+      let stored: ReturnType<typeof mapQuoteRow> | null = null;
+      try {
+        const db = requireAdminClient();
+        const found = await db.from('quotes').select('*').eq('id', quote.id).maybeSingle();
+        if (found.error) throw new Error(found.error.message);
+        if (found.data) {
+          return res.json({ quote: mapQuoteRow(found.data), message: 'Solicitud ya registrada.' });
+        }
+
+        const row = guidedQuoteToDbRow(quote);
+        const inserted = await db.from('quotes').insert(row).select('*').single();
+        if (inserted.error) {
+          const fallback = { ...row } as Record<string, unknown>;
+          delete fallback.guided_quote;
+          delete fallback.quote_source;
+          const retry = await db.from('quotes').insert(fallback).select('*').single();
+          if (retry.error) throw new Error(retry.error.message);
+          stored = mapQuoteRow(retry.data);
+        } else {
+          stored = mapQuoteRow(inserted.data);
+        }
+      } catch (dbError: any) {
+        const cause = dbError?.cause?.code || dbError?.message;
+        console.warn('[quotes] No se guardó en la base. El correo se envía igual:', cause);
       }
+
       markContact(ip);
       const mail = await sendQuoteRequestEmail(quote);
-      res.json({
-        quote: mapQuoteRow(data),
-        message: 'Solicitud guardada.',
+      if (quote.guidedQuote) {
+        quote.guidedQuote.clientMail = {
+          to: quote.clientEmail,
+          sentAt: new Date().toISOString(),
+          status: mail.sent ? 'enviado' : 'rebotado',
+        };
+      }
+      quote.emailDispatch = {
+        toCompany: 'nydo.mallas@gmail.com',
+        toClient: quote.clientEmail,
+        sentAt: new Date().toISOString(),
+        companyDelivered: mail.sent,
+        clientDelivered: mail.sent,
+        formattedContent: '',
+      };
+      if (stored) {
+        try {
+          const db = requireAdminClient();
+          await db
+            .from('quotes')
+            .update({
+              guided_quote: quote.guidedQuote || null,
+              email_dispatch: quote.emailDispatch,
+            })
+            .eq('id', quote.id);
+        } catch (updateError: any) {
+          console.warn('[quotes] No se actualizó el estado del correo:', updateError?.message);
+        }
+      }
+      if (!stored) saveLocalQuote(quote);
+      if (!stored && !mail.sent) {
+        return res.status(503).json({
+          error:
+            mail.error ||
+            'No pudimos enviar el correo. Intenta de nuevo en unos minutos o escríbenos por WhatsApp.',
+        });
+      }
+      return res.json({
+        quote,
+        message: stored ? 'Solicitud guardada.' : 'Solicitud enviada por correo.',
         mailSent: mail.sent,
         mailError: mail.error || null,
       });

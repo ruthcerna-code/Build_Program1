@@ -55,7 +55,7 @@ export const ContactView: React.FC = () => {
         Te respondemos a tu correo. El mensaje llega a {CONTACT_INBOX_EMAIL}. También puedes escribir por WhatsApp.
       </p>
       <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="nydo-btn nydo-btn-whatsapp mb-8">
-        WhatsApp {CONTACT_PHONE_DISPLAY}
+        WhatsApp <span className="whitespace-nowrap">{CONTACT_PHONE_DISPLAY}</span>
       </a>
 
       <form onSubmit={handleSubmit} className="bg-nydo-orange rounded-[20px] p-6 sm:p-8 space-y-4">

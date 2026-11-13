@@ -2,6 +2,8 @@ export type ChileRegion = {
   code: string;
   name: string;
   communes: string[];
+  /** Solo las regiones activas se ofrecen en la cotización. */
+  active?: boolean;
 };
 
 /** Catálogo oficial de regiones y comunas de Chile (división político-administrativa vigente). */
@@ -114,6 +116,7 @@ export const CHILE_REGIONS: ChileRegion[] = [
   {
     code: 'RM',
     name: 'Metropolitana de Santiago',
+    active: true,
     communes: [
       'Cerrillos',
       'Cerro Navia',
@@ -441,7 +444,10 @@ export function getRegionByCode(code: string): ChileRegion | undefined {
   return CHILE_REGIONS.find((region) => region.code === code);
 }
 
+/** Regiones que se muestran en la cotización. El resto del catálogo queda inactivo. */
+export const OFFERED_CHILE_REGIONS = CHILE_REGIONS.filter((region) => region.active === true);
+
 export function isValidRegionCommune(regionCode: string, commune: string): boolean {
   const region = getRegionByCode(regionCode);
-  return !!region && region.communes.includes(commune);
+  return !!region && region.active === true && region.communes.includes(commune);
 }

@@ -14,7 +14,10 @@ import {
   labelOf,
 } from '../constants/guidedQuote';
 import { QuoteWindowsPanel } from './WindowsMeasureTable';
+import { InstallationBudgetDetail } from './InstallationBudgetDetail';
 import { PaymentBadge, StatusBadge } from './ops/OpsUi';
+import { sentClientTotal } from '../utils/installationBudget';
+import { EstimateBreakdown } from './QuoteEstimatePanel';
 
 interface QuoteDetailModalProps {
   quote: QuoteRequest;
@@ -81,7 +84,8 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
   onSendEmail,
 }) => {
   const [notes, setNotes] = useState(quote.adminQuote?.adminNotes || quote.clientComments || '');
-  const [total, setTotal] = useState(String(quote.adminQuote?.total || ''));
+  const sentTotal = sentClientTotal(quote.guidedQuote?.installationBudget);
+  const [total, setTotal] = useState(String(quote.adminQuote?.total || sentTotal || ''));
   const [status, setStatus] = useState<QuoteStatus>(quote.status);
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('');
@@ -95,6 +99,7 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
       .filter(Boolean)
       .join(' · ') || 'No indicada';
   const pendingBalance = Math.max(0, Number(quote.adminQuote?.total || 0) - Number(quote.paidAmount || 0));
+  const estimate = quote.guidedQuote?.estimate;
 
   return (
     <DetailModal
@@ -171,10 +176,28 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
     >
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="ops-card px-4 py-3">
-          <p className="ops-label">Importe cotizado</p>
+          <p className="ops-label">{sentTotal != null && !quote.adminQuote ? 'Precio enviado' : 'Importe cotizado'}</p>
           <p className="mt-1 text-xl font-bold tabular-nums">
-            {quote.adminQuote ? formatCurrency(quote.adminQuote.total) : <span className="text-nydo-ink/45">Aún no tiene precio</span>}
+            {quote.adminQuote ? (
+              formatCurrency(quote.adminQuote.total)
+            ) : sentTotal != null ? (
+              formatCurrency(sentTotal)
+            ) : estimate ? (
+              <>
+                <span className="text-nydo-ink/45 text-xs font-semibold block">Estimación del cotizador</span>
+                {formatCurrency(estimate.total)}
+              </>
+            ) : (
+              <span className="text-nydo-ink/45">Aún no tiene precio</span>
+            )}
           </p>
+          {sentTotal != null && (
+            <p className="mt-1 text-xs text-nydo-ink/60">
+              {quote.adminQuote && quote.adminQuote.total !== sentTotal
+                ? `Precio enviado al cliente: ${formatCurrency(sentTotal)}.`
+                : 'Total IVA incluido enviado al cliente.'}
+            </p>
+          )}
         </div>
         <div className="ops-card px-4 py-3">
           <p className="ops-label">Pago</p>
@@ -223,6 +246,8 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
         </dl>
       </Section>
 
+      {currentUser && currentUser.role !== 'cliente' && <InstallationBudgetDetail quote={quote} />}
+
       {(quote.guidedQuote || quote.windows?.length || quote.clientComments) && (
         <Section title="Solicitud">
           {quote.guidedQuote && (
@@ -247,6 +272,32 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
               </Field>
             </dl>
           )}
+        </Section>
+      )}
+
+      {estimate && (
+        <Section
+          title="Estimación del cotizador"
+          aside={
+            canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTotal(String(estimate.total));
+                  setSendError(null);
+                }}
+                className="ops-btn !min-h-8 !text-xs"
+              >
+                Usar {formatCurrency(estimate.total)} como importe
+              </button>
+            )
+          }
+        >
+          <p className="text-xs text-nydo-ink/60">
+            Calculada en el servidor con las tarifas vigentes el {formatDateTime(estimate.calculatedAt)}. Si cambias las
+            tarifas después, esta estimación no cambia.
+          </p>
+          <EstimateBreakdown estimate={estimate} />
         </Section>
       )}
 

@@ -6,6 +6,7 @@ import {
   generatePricedQuoteSubject,
 } from '../src/services/emailFormatter';
 import { generateQuoteEmailHtml } from '../src/services/quoteEmailHtml';
+import { clientEstimateHtml, clientEstimateSubject, clientEstimateText, internalBudgetText } from '../src/services/installationBudgetMail';
 import type { QuoteRequest } from '../src/types';
 
 type MailKind = 'request' | 'priced';
@@ -154,6 +155,22 @@ export async function sendInboxEmail(
 }
 
 function contentFor(quote: QuoteRequest, kind: MailKind, recipient: 'client' | 'company') {
+  if (kind === 'request' && quote.guidedQuote?.installationBudget) {
+    if (recipient === 'client') {
+      return {
+        subject: clientEstimateSubject(quote),
+        text: clientEstimateText(quote),
+        html: clientEstimateHtml(quote),
+      };
+    }
+    return {
+      subject: `Desglose interno - Nydo Mallas - Solicitud N° ${quote.folio}`,
+      text: internalBudgetText(quote),
+      html: `<pre style="font-family:Georgia,serif;white-space:pre-wrap;">${internalBudgetText(quote)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')}</pre>`,
+    };
+  }
   const html = generateQuoteEmailHtml(quote, kind, recipient);
   if (kind === 'priced' && quote.adminQuote) {
     return {
@@ -180,9 +197,7 @@ export async function sendQuoteRequestEmail(
 
   try {
     const companyTo = (QUOTE_COPY_EMAIL || 'nydo.mallas@gmail.com').toLowerCase();
-    const companyMail = contentFor(quote, kind, 'company');
     const clientMail = contentFor(quote, kind, 'client');
-
     const client = await sendInboxEmail(
       clientTo,
       clientMail.subject,
@@ -190,6 +205,14 @@ export async function sendQuoteRequestEmail(
       companyTo,
       clientMail.html
     );
+    if (quote.guidedQuote) {
+      quote.guidedQuote.clientMail = {
+        to: clientTo,
+        sentAt: new Date().toISOString(),
+        status: client.sent ? 'enviado' : 'rebotado',
+      };
+    }
+    const companyMail = contentFor(quote, kind, 'company');
     const company =
       clientTo === companyTo
         ? client

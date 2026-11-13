@@ -6,6 +6,7 @@ import { QUOTE_STATUS_OPTIONS, quoteStatusLabel } from '../constants/quoteStatus
 import { QuoteDetailModal } from './QuoteDetailModal';
 import { canDeleteQuotes, canEditQuotes, canViewHistory } from '../services/permissions';
 import { formatAreaM2 } from '../utils/windowMeasures';
+import { sentClientTotal } from '../utils/installationBudget';
 import { EmptyState, KpiCard, Notice, OpsPageHeader, PaymentBadge, StatusBadge } from './ops/OpsUi';
 
 interface SimpleQuotesViewProps {
@@ -37,6 +38,28 @@ function formatQuoteTime(iso?: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function quoteMoney(quote: QuoteRequest): number {
+  return Number(quote.adminQuote?.total || sentClientTotal(quote.guidedQuote?.installationBudget) || 0);
+}
+
+function quoteAmount(quote: QuoteRequest): { text: string; muted: boolean; title: string } {
+  if (quote.adminQuote) {
+    return { text: formatCurrency(quote.adminQuote.total), muted: false, title: 'Importe cotizado' };
+  }
+  const sent = sentClientTotal(quote.guidedQuote?.installationBudget);
+  if (sent != null) {
+    return { text: formatCurrency(sent), muted: false, title: 'Precio enviado al cliente, IVA incluido' };
+  }
+  if (quote.guidedQuote?.estimate) {
+    return {
+      text: `Est. ${formatCurrency(quote.guidedQuote.estimate.total)}`,
+      muted: true,
+      title: 'Estimación del cotizador, aún sin importe confirmado',
+    };
+  }
+  return { text: 'Sin importe', muted: true, title: 'Todavía no hay un precio enviado' };
 }
 
 function quoteResponseAt(quote: QuoteRequest) {
@@ -127,7 +150,7 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
       return true;
     });
     return rows.sort((a, b) => {
-      if (sort === 'amount') return Number(b.adminQuote?.total || 0) - Number(a.adminQuote?.total || 0);
+      if (sort === 'amount') return quoteMoney(b) - quoteMoney(a);
       const diff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       return sort === 'oldest' ? -diff : diff;
     });
@@ -141,7 +164,7 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
     setSort('recent');
   };
 
-  const sumTotal = (list: QuoteRequest[]) => list.reduce((s, q) => s + Number(q.adminQuote?.total || 0), 0);
+  const sumTotal = (list: QuoteRequest[]) => list.reduce((s, q) => s + quoteMoney(q), 0);
   const toAnswer = base.filter((q) => q.status === 'pendiente' || q.status === 'en_revision');
   const sent = base.filter((q) => q.status === 'cotizada');
   const acceptedTotal = sumTotal(base);
@@ -340,11 +363,14 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
                           <td className="whitespace-nowrap text-nydo-ink/75">{measuresLabel(q)}</td>
                         )}
                         <td className="ops-num font-bold">
-                          {q.adminQuote ? (
-                            formatCurrency(q.adminQuote.total)
-                          ) : (
-                            <span className="font-semibold text-nydo-ink/45">Sin importe</span>
-                          )}
+                          {(() => {
+                            const amount = quoteAmount(q);
+                            return (
+                              <span className={amount.muted ? 'font-semibold text-nydo-ink/55' : undefined} title={amount.title}>
+                                {amount.text}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td>
                           {accepted ? <PaymentBadge status={q.paymentStatus} /> : <StatusBadge status={q.status} />}
@@ -396,7 +422,7 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
                       </span>
                       <span className="shrink-0 text-right">
                         <span className="block font-bold tabular-nums">
-                          {q.adminQuote ? formatCurrency(q.adminQuote.total) : <span className="text-nydo-ink/45">Sin importe</span>}
+                          {quoteAmount(q).text}
                         </span>
                         <ChevronRight className="ml-auto mt-1 h-4 w-4 text-nydo-ink/40" />
                       </span>

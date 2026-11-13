@@ -21,6 +21,16 @@ import {
   toStoredWindow,
   type WindowMeasureDraft,
 } from '../src/utils/windowMeasures';
+import {
+  computeEstimate,
+  formatCLP,
+  formatMeters,
+  formatPercent,
+  isSpaceType,
+  type PricingConfig,
+  type QuoteEstimate,
+  type SpaceInput,
+} from '../src/utils/quotePricing';
 
 const WORK = new Set(WORK_TYPE_OPTIONS.map((o) => o.id));
 const SURFACE = new Set(SURFACE_OPTIONS.map((o) => o.id));
@@ -45,8 +55,35 @@ export type GuidedQuotePayload = {
   phone?: string;
   acceptedTerms?: boolean;
   commercialOptIn?: boolean;
-  windows?: Array<{ id?: string; name?: string; widthCm?: string | number; heightCm?: string | number }>;
+  meshId?: string;
+  windows?: Array<{
+    id?: string;
+    name?: string;
+    widthCm?: string | number;
+    heightCm?: string | number;
+    spaceType?: string;
+    faces?: string | number;
+    extraPillars?: string | number;
+  }>;
 };
+
+export function estimateFromWindows(
+  windows: WindowItem[],
+  surface: SurfaceType | '',
+  meshId: string,
+  config: PricingConfig
+): QuoteEstimate | { error: string } {
+  const spaces: SpaceInput[] = windows.map((win, i) => ({
+    label: itemTitle(surface, i),
+    location: win.name,
+    spaceType: win.spaceType!,
+    widthCm: win.widthCm ?? win.width * 100,
+    heightCm: win.heightCm ?? win.height * 100,
+    faces: win.faces ?? 1,
+    extraPillars: win.extraPillars ?? 0,
+  }));
+  return computeEstimate(spaces, meshId, config);
+}
 
 export function validateGuidedQuote(body: GuidedQuotePayload): string | null {
   const regionCode = String(body.regionCode || '');
@@ -88,6 +125,9 @@ export function parseGuidedWindows(
       name: String(item.name || ''),
       widthCm: String(item.widthCm ?? ''),
       heightCm: String(item.heightCm ?? ''),
+      spaceType: isSpaceType(item.spaceType) ? item.spaceType : '',
+      faces: String(item.faces ?? '1'),
+      extraPillars: String(item.extraPillars ?? '0'),
     };
     const stored = toStoredWindow(draft, i + 1, itemTitle(surface, i));
     if ('error' in stored) return { error: stored.error };
@@ -100,7 +140,8 @@ export function parseGuidedWindows(
 export function buildGuidedQuoteRecord(
   body: GuidedQuotePayload,
   ownerEmail: string,
-  ownerName: string
+  ownerName: string,
+  pricing: PricingConfig | null
 ): QuoteRequest {
   const region = getRegionByCode(String(body.regionCode))!;
   const finishType = body.finishType as FinishType;
@@ -125,13 +166,38 @@ export function buildGuidedQuoteRecord(
     throw new Error(parsedWindows.error);
   }
 
+  let estimate: QuoteEstimate | undefined;
+  if (pricing) {
+    const result = estimateFromWindows(parsedWindows.windows, guided.surfaceType, String(body.meshId || ''), pricing);
+    if ('error' in result) throw new Error(result.error);
+    estimate = result;
+    guided.meshId = result.mesh.id;
+    guided.estimate = result;
+  }
+
   const windowLines = parsedWindows.windows.map((win, i) => {
     const label = itemTitle(guided.surfaceType, i);
-    return `${label}${win.name && win.name !== label ? ` (${win.name})` : ''}: ${win.widthCm} cm × ${win.heightCm} cm = ${formatAreaM2(win.area)} m²`;
+    const space = estimate?.spaces[i];
+    const pricingPart = space
+      ? ` · ${space.spaceTypeLabel} · ${space.faces} ${space.faces === 1 ? 'cara' : 'caras'} · ${formatMeters(space.linearMeters)} ml · pilares ${space.autoPillars} automático(s) + ${space.extraPillars} extra`
+      : '';
+    return `${label}${win.name && win.name !== label ? ` (${win.name})` : ''}: ${win.widthCm} cm × ${win.heightCm} cm${pricingPart}`;
   });
 
+  const estimateLines = estimate
+    ? [
+        `Malla: ${estimate.mesh.label} a ${formatCLP(estimate.mesh.pricePerMeter)} por metro lineal`,
+        `Metros lineales facturables: ${formatMeters(estimate.totalLinearMeters)} ml`,
+        `Subtotal malla: ${formatCLP(estimate.meshSubtotal)}`,
+        `Pilares: ${estimate.autoPillars} automático(s) + ${estimate.extraPillars} extra × ${formatCLP(estimate.pillarPrice)} = ${formatCLP(estimate.pillarSubtotal)}`,
+        `Total estimado: ${formatCLP(estimate.total)}`,
+        `Abono inicial (${formatPercent(estimate.depositPercent)}): ${formatCLP(estimate.deposit)}`,
+        `Saldo al finalizar: ${formatCLP(estimate.balance)}`,
+      ]
+    : ['Estimación referencial: no disponible (tarifas sin configurar).'];
+
   const summary = [
-    'Solicitud guiada (sin precio; medidas por rangos). Las medidas por ventana son las ingresadas por el cliente.',
+    'Solicitud guiada con estimación referencial calculada en el servidor. Las medidas son las ingresadas por el cliente.',
     `Región: ${guided.regionName}`,
     `Comuna: ${guided.commune}`,
     `Trabajo: ${labelOf(WORK_TYPE_OPTIONS, guided.workType)}`,
@@ -144,6 +210,7 @@ export function buildGuidedQuoteRecord(
     `Cantidad: ${parsedWindows.windows.length}`,
     `Superficie total: ${formatAreaM2(parsedWindows.totalAreaM2)} m²`,
     ...windowLines,
+    ...estimateLines,
   ].join('\n');
 
   const id = String(body.clientRequestId || '').trim() || `gq-${Date.now()}`;

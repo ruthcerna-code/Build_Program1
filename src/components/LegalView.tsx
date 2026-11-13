@@ -55,7 +55,7 @@ export const LegalView: React.FC<LegalViewProps> = ({ kind, onBack }) => {
         </div>
       )}
       <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="nydo-btn nydo-btn-whatsapp mt-8">
-        WhatsApp {CONTACT_PHONE_DISPLAY}
+        WhatsApp <span className="whitespace-nowrap">{CONTACT_PHONE_DISPLAY}</span>
       </a>
     </section>
   );
