@@ -21,7 +21,7 @@ import { buildGuidedQuoteRecord, guidedQuoteToDbRow, validateGuidedQuote } from 
 import { sendInboxEmail, sendQuoteRequestEmail } from './sendQuoteMail';
 import { loadPricingConfig, loadPricingRates, updatePricingRates } from './pricing';
 import { attachInstallationBudget, loadBudgetSettings, loadMarginHistory, saveCostParameters, saveMargin } from './budgetConfig';
-import { configNotice, isNetworkFailure, probeSupabase } from './localConfig';
+import { configNotice, isNetworkFailure, probeSupabase, userFacingError } from './localConfig';
 import { readLocalQuotes, saveLocalQuote } from './localQuotes';
 import type { PricingConfig } from '../src/utils/quotePricing';
 import type { QuoteRequest } from '../src/types';
@@ -266,7 +266,7 @@ export function mountApiRoutes(app: Express) {
       } catch (pricingError: any) {
         console.warn('[pricing] Sin tarifas en la base. La solicitud sigue y el correo se envía igual:', pricingError?.message);
       }
-      if (pricing && !pricing.meshes.some((m) => m.id === req.body?.meshId)) {
+      if (req.body?.meshId && pricing && !pricing.meshes.some((m) => m.id === req.body.meshId)) {
         return res.status(400).json({ error: 'Elige el grosor de la malla.' });
       }
 
@@ -332,12 +332,19 @@ export function mountApiRoutes(app: Express) {
           console.warn('[quotes] No se actualizó el estado del correo:', updateError?.message);
         }
       }
-      if (!stored) saveLocalQuote(quote);
+      if (!stored) {
+        try {
+          saveLocalQuote(quote);
+        } catch (localError: any) {
+          console.warn('[quotes] No se guardó copia local:', localError?.message);
+        }
+      }
       if (!stored && !mail.sent) {
         return res.status(503).json({
-          error:
-            mail.error ||
-            'No pudimos enviar el correo. Intenta de nuevo en unos minutos o escríbenos por WhatsApp.',
+          error: userFacingError(
+            mail.error,
+            'No pudimos enviar el correo. Intenta de nuevo en unos minutos o escríbenos por WhatsApp.'
+          ),
         });
       }
       return res.json({
@@ -347,7 +354,10 @@ export function mountApiRoutes(app: Express) {
         mailError: mail.error || null,
       });
     } catch (err: any) {
-      res.status(503).json({ error: err?.message || 'No pudimos guardar la solicitud.' });
+      console.error('[quotes/guided]', err?.cause?.code || err?.message || err);
+      res.status(503).json({
+        error: userFacingError(err, 'No pudimos guardar la solicitud. Intenta de nuevo o escríbenos por WhatsApp.'),
+      });
     }
   });
 

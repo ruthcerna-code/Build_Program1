@@ -24,6 +24,14 @@ export function setSessionToken(token: string | null) {
   }
 }
 
+function publicFetchError(err: unknown, fallback = 'No pudimos completar la acción.') {
+  const message = String((err as { message?: string })?.message || err || '');
+  if (/typeerror|fetch failed|failed to fetch|networkerror|load failed/i.test(message)) {
+    return 'No pudimos conectar con el servidor. Espera un momento e intenta de nuevo, o escríbenos por WhatsApp.';
+  }
+  return message || fallback;
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const token = getSessionToken();
   const headers = new Headers(init.headers || {});
@@ -32,12 +40,16 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   }
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(path, { ...init, headers });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || 'No pudimos completar la acción.');
+  try {
+    const response = await fetch(path, { ...init, headers });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(publicFetchError(data.error, 'No pudimos completar la acción.'));
+    }
+    return data;
+  } catch (err: any) {
+    throw new Error(publicFetchError(err));
   }
-  return data;
 }
 
 export async function loginWithPassword(

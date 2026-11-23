@@ -94,8 +94,20 @@ export function isNetworkFailure(err: unknown): boolean {
   const message = String(any?.message || err || '');
   return (
     ['ENOTFOUND', 'ECONNREFUSED', 'EAI_AGAIN', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'ENETUNREACH'].includes(code) ||
-    /fetch failed|ENOTFOUND|getaddrinfo|network/i.test(message)
+    /fetch failed|failed to fetch|typeerror|ENOTFOUND|getaddrinfo|network/i.test(message)
   );
+}
+
+export function userFacingError(
+  err: unknown,
+  fallback = 'No pudimos completar la solicitud. Intenta de nuevo o escríbenos por WhatsApp.'
+): string {
+  const message = String((err as { message?: string })?.message || err || '');
+  if (isNetworkFailure(err) || /typeerror|fetch failed|failed to fetch/i.test(message)) {
+    return 'No pudimos conectar con el servidor. Espera un momento e intenta de nuevo, o escríbenos por WhatsApp.';
+  }
+  if (!message || /internal server error|undici|econn|etimedout/i.test(message)) return fallback;
+  return message;
 }
 
 function rememberRemote(ok: boolean) {

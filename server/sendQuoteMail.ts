@@ -46,29 +46,33 @@ async function postResendEmail(
   if (!RESEND_API_KEY) {
     return { sent: false, error: 'El envío de correo aún no está configurado.' };
   }
-  const sendRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: MAIL_FROM,
-      to: [to],
-      reply_to: replyTo || QUOTE_COPY_EMAIL,
-      subject,
-      text,
-      html: html || toHtml(text),
-    }),
-  });
-  if (sendRes.ok) return { sent: true };
-  const detail = await sendRes.text();
-  console.warn('[mail] Resend rechazó el envío a', to, sendRes.status, detail.slice(0, 240));
-  return {
-    sent: false,
-    blockedTest: isResendTestBlock(detail),
-    error: explainResendError(detail),
-  };
+  try {
+    const sendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: MAIL_FROM,
+        to: [to],
+        reply_to: replyTo || QUOTE_COPY_EMAIL,
+        subject,
+        text,
+        html: html || toHtml(text),
+      }),
+    });
+    if (sendRes.ok) return { sent: true };
+    const detail = await sendRes.text();
+    console.warn('[mail] Resend rechazó el envío a', to, sendRes.status, detail.slice(0, 240));
+    return {
+      sent: false,
+      blockedTest: isResendTestBlock(detail),
+      error: explainResendError(detail),
+    };
+  } catch {
+    return { sent: false, error: 'No pudimos conectar con el servicio de correo.' };
+  }
 }
 
 async function postCompanyInboxEmail(

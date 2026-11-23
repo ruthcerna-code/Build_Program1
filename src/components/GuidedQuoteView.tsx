@@ -366,7 +366,12 @@ export const GuidedQuoteView: React.FC<GuidedQuoteViewProps> = ({
       setSuccess(receipt);
       onSubmitted(data.quote);
     } catch (err: any) {
-      setSubmitError(err?.message || 'No pudimos guardar la solicitud. Puedes reintentar.');
+      const raw = String(err?.message || '');
+      setSubmitError(
+        /typeerror|fetch failed|failed to fetch/i.test(raw)
+          ? 'No pudimos conectar con el servidor. Espera un momento e intenta de nuevo, o escríbenos por WhatsApp.'
+          : raw || 'No pudimos guardar la solicitud. Puedes reintentar.'
+      );
     } finally {
       setSubmitting(false);
     }

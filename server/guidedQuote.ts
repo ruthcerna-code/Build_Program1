@@ -23,6 +23,7 @@ import {
 } from '../src/utils/windowMeasures';
 import {
   computeEstimate,
+  defaultSpaceTypeForSurface,
   formatCLP,
   formatMeters,
   formatPercent,
@@ -125,7 +126,7 @@ export function parseGuidedWindows(
       name: String(item.name || ''),
       widthCm: String(item.widthCm ?? ''),
       heightCm: String(item.heightCm ?? ''),
-      spaceType: isSpaceType(item.spaceType) ? item.spaceType : '',
+      spaceType: isSpaceType(item.spaceType) ? item.spaceType : defaultSpaceTypeForSurface(surface),
       faces: String(item.faces ?? '1'),
       extraPillars: String(item.extraPillars ?? '0'),
     };
@@ -167,12 +168,13 @@ export function buildGuidedQuoteRecord(
   }
 
   let estimate: QuoteEstimate | undefined;
-  if (pricing) {
+  if (pricing && body.meshId) {
     const result = estimateFromWindows(parsedWindows.windows, guided.surfaceType, String(body.meshId || ''), pricing);
-    if ('error' in result) throw new Error(result.error);
-    estimate = result;
-    guided.meshId = result.mesh.id;
-    guided.estimate = result;
+    if (!('error' in result)) {
+      estimate = result;
+      guided.meshId = result.mesh.id;
+      guided.estimate = result;
+    }
   }
 
   const windowLines = parsedWindows.windows.map((win, i) => {
