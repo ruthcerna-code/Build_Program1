@@ -8,6 +8,7 @@ import {
   type WorkType,
 } from '../constants/guidedQuote';
 import { emptyWindowDraft, windowHasData, type WindowMeasureDraft } from '../utils/windowMeasures';
+import { isSpaceType } from '../utils/quotePricing';
 
 const DRAFT_KEY = 'mallas_guided_quote_draft_v1';
 
@@ -28,6 +29,7 @@ export type GuidedQuoteDraft = {
   phone: string;
   acceptedTerms: boolean;
   commercialOptIn: boolean;
+  meshId: string;
   windows: WindowMeasureDraft[];
 };
 
@@ -48,6 +50,7 @@ export const emptyGuidedDraft = (): GuidedQuoteDraft => ({
   phone: '',
   acceptedTerms: false,
   commercialOptIn: false,
+  meshId: '',
   windows: [emptyWindowDraft()],
 });
 
@@ -58,11 +61,14 @@ export function loadGuidedDraft(): GuidedQuoteDraft {
     const parsed = JSON.parse(raw) as Partial<GuidedQuoteDraft>;
     const windows =
       Array.isArray(parsed.windows) && parsed.windows.length > 0
-        ? parsed.windows.map((w, i) => ({
+        ? parsed.windows.map((w, i): WindowMeasureDraft => ({
             id: w.id || `win-${i + 1}`,
             name: w.name || '',
             widthCm: w.widthCm || '',
             heightCm: w.heightCm || '',
+            spaceType: isSpaceType(w.spaceType) ? w.spaceType : '',
+            faces: w.faces || '1',
+            extraPillars: w.extraPillars || '0',
           }))
         : [emptyWindowDraft()];
     const step = Math.min(Math.max(1, Number(parsed.step) || 1), GUIDED_QUOTE_STEPS);

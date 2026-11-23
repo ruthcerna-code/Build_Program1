@@ -16,8 +16,33 @@ import {
   isBalconySurface,
   itemTitle,
 } from '../utils/windowMeasures';
+import {
+  ESTIMATE_DISCLAIMER,
+  estimateNarrative,
+  formatCLP as formatEstimateCLP,
+  formatMeters,
+  formatPercent,
+} from '../utils/quotePricing';
 
 export const COMPANY_NOTIFICATION_EMAIL = 'nydo.mallas@gmail.com';
+
+function estimateTextLines(quote: QuoteRequest): string[] {
+  const e = quote.guidedQuote?.estimate;
+  if (!e) return [];
+  return [
+    ` • Metros lineales facturables: ${formatMeters(e.totalLinearMeters)} ml ((ancho + alto) × caras)`,
+    ` • Malla seleccionada         : ${e.mesh.label} a ${formatEstimateCLP(e.mesh.pricePerMeter)} por metro lineal`,
+    ` • Subtotal de malla          : ${formatEstimateCLP(e.meshSubtotal)}`,
+    ` • Pilares                    : ${e.autoPillars} automático(s) + ${e.extraPillars} extra × ${formatEstimateCLP(e.pillarPrice)} = ${formatEstimateCLP(e.pillarSubtotal)}`,
+    ` • Total estimado             : ${formatEstimateCLP(e.total)}`,
+    ` • Abono inicial (${formatPercent(e.depositPercent)})     : ${formatEstimateCLP(e.deposit)}`,
+    ` • Saldo al finalizar         : ${formatEstimateCLP(e.balance)}`,
+    '',
+    'Cómo se calcula el valor:',
+    ...estimateNarrative(e).map((line, i) => ` ${i + 1}. ${line}`),
+    ` • ${ESTIMATE_DISCLAIMER}`,
+  ];
+}
 
 /**
  * Generates the email subject for the formatted quote notice
@@ -67,7 +92,9 @@ export function generateFormattedQuoteEmailText(
       'Tu requerimiento ha sido registrado con éxito en nuestro sistema y está en proceso de revisión.',
       '',
       '• NOTA SOBRE EL PRECIO:',
-      'En esta instancia no se incluye ningún precio automático o referencial.',
+      quote.guidedQuote?.estimate
+        ? 'Incluimos una estimación referencial calculada con tus medidas (ver sección 4). El valor final se confirma en la evaluación técnica.'
+        : 'En esta instancia no se incluye un precio referencial.',
       'Nuestro equipo técnico de Nydo Mallas evaluará las medidas de tus ventanas, el tipo de malla',
       'y las condiciones de instalación para formular tu presupuesto formal y coordinar la fecha definitiva.',
       ''
@@ -78,7 +105,9 @@ export function generateFormattedQuoteEmailText(
       ' NOTA INTERNA DE RECEPCIÓN (ADMIN)',
       '------------------------------------------------------------',
       `Nueva cotización solicitada por el cliente ${quote.clientName}.`,
-      '• AVISO: No se ha colocado ningún precio al cliente; únicamente se le notificó que está cotizando.',
+      quote.guidedQuote?.estimate
+        ? `• AVISO: El cliente vio una estimación referencial de ${formatEstimateCLP(quote.guidedQuote.estimate.total)}. El valor final lo fija el administrador.`
+        : '• AVISO: No se ha colocado ningún precio al cliente; únicamente se le notificó que está cotizando.',
       '• ACCIÓN: El administrador debe ingresar a la Pantalla de Recepción para evaluar las medidas,',
       'fijar el valor oficial y coordinar la cuadrilla técnica.',
       ''
@@ -153,7 +182,10 @@ export function generateFormattedQuoteEmailText(
     ` • Cantidad Total de ${balcony ? 'Paños' : 'Ventanas'} : ${quote.windows.length}`,
     ` • Superficie Total Solicitada: ${formatAreaM2(quote.totalAreaM2)} m²`,
     ' • Las medidas ingresadas son referenciales y deberán confirmarse antes de la instalación.',
-    ' • Estado del Presupuesto     : EN PROCESO DE COTIZACIÓN (Sin precio previo emitido)',
+    ...estimateTextLines(quote),
+    quote.guidedQuote?.estimate
+      ? ' • Estado del Presupuesto     : EN PROCESO DE COTIZACIÓN (estimación referencial, valor final por confirmar)'
+      : ' • Estado del Presupuesto     : EN PROCESO DE COTIZACIÓN (Sin precio previo emitido)',
     recipient === 'client'
       ? ' • Próximo Paso               : Un asesor técnico revisará tus medidas y te contactará para confirmar tu cotización formal.'
       : ' • Próximo Paso               : Fijar el presupuesto en Recepción (Admin) y asignar técnico instalador.',

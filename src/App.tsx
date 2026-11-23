@@ -7,6 +7,8 @@ import { SimpleQuotesView } from './components/SimpleQuotesView';
 import { ContactView } from './components/ContactView';
 import { SalesView } from './components/SalesView';
 import { InternalUsersView } from './components/InternalUsersView';
+import { PricingSettingsView } from './components/PricingSettingsView';
+import { CommercialSettingsView } from './components/CommercialSettingsView';
 import { AdminSyncBar } from './components/AdminSyncBar';
 import { TechnicianOrdersView } from './components/TechnicianOrdersView';
 import { ClientQuotePortalView } from './components/ClientQuotePortalView';
@@ -41,10 +43,11 @@ import {
 } from './services/quoteStorage';
 import { getCurrentUser, logoutUser, isUserAdmin, isInternalUser, syncUsersWithSupabase } from './services/authStorage';
 import { canSyncData, canViewQuotes, canViewSales, canManageUsers } from './services/permissions';
+import { apiFetch } from './services/sessionApi';
 import { clearGuidedDraft, hasUnsavedGuidedDraft } from './services/guidedQuoteDraft';
 import { CONTACT_PHONE_DISPLAY, CONTACT_EMAIL, CONTACT_COVERAGE, WHATSAPP_QUOTE_URL } from './constants/contact';
 import { recordUserAccessLog, syncAccessLogsWithSupabase } from './services/accessLogService';
-import { apiFetch } from './services/sessionApi';
+import { quoteWithInstallationBudget } from './utils/installationBudget';
 import {
   ShieldCheck,
   Phone,
@@ -204,6 +207,50 @@ export default function App() {
       window.removeEventListener('storage', handleStorageUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || !canViewQuotes(currentUser)) return;
+    let cancelled = false;
+    (async () => {
+      let remote: QuoteRequest[] = [];
+      try {
+        const data = await apiFetch('/api/quotes');
+        remote = data.quotes || [];
+      } catch {
+        remote = [];
+      }
+      let settings: { parameters?: Parameters<typeof quoteWithInstallationBudget>[1]; margin?: Parameters<typeof quoteWithInstallationBudget>[2] } | null = null;
+      try {
+        settings = await apiFetch('/api/commercial');
+      } catch {
+        settings = null;
+      }
+      if (cancelled) return;
+      const map = new Map(getStoredQuotes().map((quote) => [quote.id, quote]));
+      for (const quote of remote) {
+        const previous = map.get(quote.id);
+        const keptBudget = quote.guidedQuote?.installationBudget?.available
+          ? quote.guidedQuote
+          : previous?.guidedQuote?.installationBudget?.available
+            ? previous.guidedQuote
+            : quote.guidedQuote || previous?.guidedQuote;
+        map.set(quote.id, {
+          ...previous,
+          ...quote,
+          guidedQuote: keptBudget,
+          windows: quote.windows?.length ? quote.windows : previous?.windows || quote.windows,
+        });
+      }
+      const merged = [...map.values()]
+        .map((quote) => quoteWithInstallationBudget(quote, settings?.parameters, settings?.margin))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      saveQuotesToStorage(merged);
+      setQuotes(merged);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   // Record connectivity timestamp in database on application start
   useEffect(() => {
@@ -577,6 +624,20 @@ export default function App() {
             <p className="text-center py-16 text-slate-600">Solo la administradora gestiona las cuentas.</p>
           ))}
 
+        {currentView === 'pricing' &&
+          (canManageUsers(currentUser) ? (
+            <PricingSettingsView />
+          ) : (
+            <p className="text-center py-16 text-slate-600">Solo la administradora edita las tarifas.</p>
+          ))}
+
+        {currentView === 'commercial' &&
+          (canManageUsers(currentUser) ? (
+            <CommercialSettingsView />
+          ) : (
+            <p className="text-center py-16 text-slate-600">Solo la administradora edita los parámetros comerciales.</p>
+          ))}
+
         {currentView === 'client_portal' && (
           <ClientQuotePortalView
             quote={activePortalQuote}
@@ -648,9 +709,9 @@ export default function App() {
             href={WHATSAPP_QUOTE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="fixed bottom-6 left-6 z-40 nydo-btn nydo-btn-whatsapp shadow-xl"
+            className="fixed bottom-6 left-6 z-40 nydo-btn nydo-btn-whatsapp shadow-xl !text-sm sm:!text-base"
           >
-            WhatsApp
+            WhatsApp <span className="whitespace-nowrap">{CONTACT_PHONE_DISPLAY}</span>
           </a>
           <ClientAssistantFloatingButton
             onClick={() => setIsAssistantOpen(true)}
@@ -724,12 +785,12 @@ export default function App() {
             </h2>
             <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <p>Cuéntanos qué quieres proteger.</p>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={handleNavigateToQuoteMesh} className="nydo-btn">
-                  EMPECEMOS ↗
+              <div className="flex flex-col items-stretch gap-3 w-full sm:w-auto sm:min-w-[18rem]">
+                <button type="button" onClick={handleNavigateToQuoteMesh} className="nydo-btn w-full">
+                  Cotizar Malla
                 </button>
-                <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="nydo-btn nydo-btn-whatsapp">
-                  WhatsApp
+                <a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noopener noreferrer" className="nydo-btn nydo-btn-whatsapp w-full">
+                  WhatsApp <span className="whitespace-nowrap">{CONTACT_PHONE_DISPLAY}</span>
                 </a>
               </div>
             </div>

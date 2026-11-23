@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronRight, ExternalLink, Send } from 'lucide-react';
 import { QuoteRequest, UserAccount, UserAccessLog } from '../types';
 import { formatCurrency } from '../services/quoteStorage';
+import { sentClientTotal } from '../utils/installationBudget';
 import { getStoredAccessLogs } from '../services/accessLogService';
 import { EmptyState, KpiCard, OpsPageHeader } from './ops/OpsUi';
 
@@ -136,6 +137,11 @@ export const HomeAdminView: React.FC<HomeAdminViewProps> = ({
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
+                      {sentClientTotal(quote.guidedQuote?.installationBudget) != null && (
+                        <span className="font-bold tabular-nums">
+                          {formatCurrency(sentClientTotal(quote.guidedQuote?.installationBudget) || 0)}
+                        </span>
+                      )}
                       <span className={`text-xs font-bold ${days >= 2 ? 'text-nydo-orange' : 'text-nydo-ink/55'}`}>
                         {days < 1 ? 'Hoy' : `Espera ${days} ${days === 1 ? 'día' : 'días'}`}
                       </span>

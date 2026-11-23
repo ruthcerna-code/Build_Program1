@@ -29,6 +29,47 @@ body {
   line-height: 0.92;
 }
 
+.nydo-marquee {
+  overflow: hidden;
+}
+
+.nydo-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: nydo-marquee 28s linear infinite;
+}
+
+.nydo-marquee-group {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.nydo-marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.45rem 1.25rem 0.45rem 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+@keyframes nydo-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nydo-marquee-track {
+    animation: none;
+  }
+}
+
 .nydo-btn {
   display: inline-flex;
   justify-content: center;
@@ -41,7 +82,9 @@ body {
   background: var(--color-nydo-yellow);
   color: var(--color-nydo-ink);
   font-family: var(--font-body);
+  font-size: 1rem;
   font-weight: 700;
+  line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   transition: transform 0.2s ease;
@@ -64,6 +107,22 @@ body {
 .nydo-btn-whatsapp {
   background: #25d366;
   color: #08351a;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  column-gap: 0.4rem;
+  row-gap: 0.05rem;
+  height: auto;
+  min-height: 3.25rem;
+  overflow: visible;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
+  font-size: 1rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
 }
 
 .nydo-input {

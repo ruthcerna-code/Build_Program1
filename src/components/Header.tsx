@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { LogIn, LogOut, ChevronDown, Database, ExternalLink } from 'lucide-react';
 import { UserAccount } from '../types';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import { isUserAdmin, isUserTechnician } from '../services/authStorage';
-import { WHATSAPP_QUOTE_URL } from '../constants/contact';
 import { canViewQuotes, canViewSales } from '../services/permissions';
 import { isPrincipalAdminEmail } from '../constants/admin';
 
@@ -19,7 +18,9 @@ export type AppView =
   | 'privacy'
   | 'terms'
   | 'sales'
-  | 'team';
+  | 'team'
+  | 'pricing'
+  | 'commercial';
 
 interface HeaderProps {
   currentView: AppView;
@@ -60,12 +61,30 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSupabaseModal,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const supabaseConnected = isSupabaseConfigured();
+  const supabaseConfigured = isSupabaseConfigured();
+  const [supabaseReachable, setSupabaseReachable] = useState<boolean | null>(null);
+  const supabaseConnected = supabaseReachable === null ? supabaseConfigured : supabaseReachable;
   const user = currentUser || null;
   const isAdmin = isUserAdmin(user);
   const isTechnician = isUserTechnician(user);
   const isStaff = isAdmin || isTechnician || user?.role === 'interno';
   const showInternalTools = isPrincipalAdminEmail(user?.email);
+
+  useEffect(() => {
+    if (!showInternalTools) return;
+    let cancelled = false;
+    fetch('/api/health')
+      .then((response) => response.json())
+      .then((data) => {
+        if (!cancelled && typeof data.supabaseReachable === 'boolean') setSupabaseReachable(data.supabaseReachable);
+      })
+      .catch(() => {
+        if (!cancelled) setSupabaseReachable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showInternalTools]);
 
   const goPublicSection = (id: string) => {
     if (currentView !== 'client') onNavigate('client');
@@ -80,6 +99,8 @@ export const Header: React.FC<HeaderProps> = ({
         { view: 'approved_quotes', label: 'CT Aceptadas', count: approvedQuotesCount, id: 'btn-nav-approved-quotes' },
         { view: 'sales', label: 'Ventas' },
         { view: 'team', label: 'Cuentas' },
+        ...(showInternalTools ? [{ view: 'pricing' as AppView, label: 'Tarifas' }] : []),
+        ...(showInternalTools ? [{ view: 'commercial' as AppView, label: 'Parámetros' }] : []),
       ]
     : isTechnician
     ? [
@@ -182,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
       id="btn-open-login"
       type="button"
       onClick={() => onOpenLogin?.('login')}
-      className="nydo-btn nydo-btn-ink !min-h-10 !py-2 !px-4 text-xs"
+      className="nydo-btn nydo-btn-ink !min-h-10 !py-2 !px-4 !text-xs"
       title="Iniciar sesión"
     >
       <LogIn className="w-3.5 h-3.5" />
@@ -264,6 +285,20 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header id="app-main-header" className="sticky top-0 z-40 bg-nydo-orange text-nydo-ink">
+      <div role="status" className="nydo-marquee bg-nydo-ink text-nydo-cream">
+        <div className="nydo-marquee-track">
+          {[0, 1].map((group) => (
+            <div key={group} className="nydo-marquee-group" aria-hidden={group === 1 || undefined}>
+              {Array.from({ length: 8 }, (_, index) => (
+                <span key={index} className="nydo-marquee-item">
+                  Página en proceso de construcción. Ya abriremos.
+                  <span aria-hidden="true">✳</span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-14">
         <div className="flex items-center justify-between gap-3 py-5 border-b border-nydo-ink/25">
           <div
@@ -324,21 +359,11 @@ export const Header: React.FC<HeaderProps> = ({
                 id="btn-nav-quote-mesh"
                 type="button"
                 onClick={() => onNavigate('quote_mesh')}
-                className="nydo-btn !min-h-10 !py-2 !px-5 text-sm"
+                className="nydo-btn !min-h-10 !py-2 !px-5 !text-sm"
               >
-                Cotizar mi espacio ↗
+                Cotizar Malla
               </button>
             </nav>
-
-            <a
-              id="btn-header-whatsapp"
-              href={WHATSAPP_QUOTE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden lg:inline-flex nydo-btn nydo-btn-whatsapp !min-h-10 !py-2 !px-4 text-sm"
-            >
-              WhatsApp
-            </a>
 
             <div className="relative pl-2 sm:pl-3 border-l border-nydo-ink/25">{userMenu}</div>
           </div>

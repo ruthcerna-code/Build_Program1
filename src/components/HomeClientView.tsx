@@ -56,7 +56,7 @@ export const HomeClientView: React.FC<HomeClientViewProps> = ({
             <button
               type="button"
               onClick={() => setAdminViewingClientPreview(false)}
-              className="nydo-btn nydo-btn-ink !min-h-10 !py-2 !px-4 text-xs"
+              className="nydo-btn nydo-btn-ink !min-h-10 !py-2 !px-4 !text-xs"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               Volver al Home de Administrador

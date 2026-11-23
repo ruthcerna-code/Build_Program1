@@ -69,19 +69,19 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                 <br />
                 Mallas de protección para tus ventanas, balcones y terrazas.
               </p>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-col items-stretch gap-3 w-full">
                 {onGoToQuoteMesh && (
-                  <button type="button" onClick={onGoToQuoteMesh} className="nydo-btn">
-                    QUIERO COTIZAR <span aria-hidden="true">↗</span>
+                  <button type="button" onClick={onGoToQuoteMesh} className="nydo-btn w-full">
+                    Cotizar Malla
                   </button>
                 )}
                 <a
                   href={WHATSAPP_QUOTE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="nydo-btn nydo-btn-whatsapp"
+                  className="nydo-btn nydo-btn-whatsapp w-full"
                 >
-                  WhatsApp {CONTACT_PHONE_DISPLAY}
+                  WhatsApp <span className="whitespace-nowrap">{CONTACT_PHONE_DISPLAY}</span>
                 </a>
               </div>
               <p className="text-xs mt-4">Cuéntanos qué espacio quieres proteger. Cotización sin costo.</p>
@@ -177,6 +177,60 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
         </div>
       </section>
 
+      <section className="bg-nydo-cream pb-12 sm:pb-16" id="especificaciones">
+        <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-14">
+          <h2 className="nydo-display text-[clamp(3rem,6vw,5.5rem)]">
+            Especificaciones
+            <br />
+            técnicas.
+          </h2>
+          <p className="max-w-xl text-sm mt-4 mb-9">
+            Materiales de grado industrial diseñados para ofrecer máxima resistencia y durabilidad bajo condiciones
+            extremas.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
+            <dl className="bg-white rounded-2xl overflow-hidden border border-nydo-ink/10">
+              {[
+                ['Material', 'Monofilamento de Nylon'],
+                ['Protección', 'Estabilizador UV'],
+                ['Durabilidad estimada', '2 a 4 años'],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-4 px-5 py-4 border-b border-nydo-ink/10 last:border-b-0"
+                >
+                  <dt className="text-sm font-bold">{label}</dt>
+                  <dd className="text-sm font-bold text-right">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="bg-white rounded-2xl overflow-hidden border border-nydo-ink/10">
+              <h3 className="nydo-display text-3xl px-5 pt-5 pb-3">Tabla de resistencia</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-[0.12em] text-nydo-ink/60">
+                    <th className="px-5 py-3 font-bold">Grosor</th>
+                    <th className="px-5 py-3 font-bold text-right">Resistencia (kg/m²)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['0.6 mm', '60-80 kg'],
+                    ['0.7 mm', '80-100 kg'],
+                    ['0.8 mm', '100-120 kg'],
+                  ].map(([thickness, resistance]) => (
+                    <tr key={thickness} className="border-t border-nydo-ink/10">
+                      <td className="px-5 py-3.5 font-bold">{thickness}</td>
+                      <td className="px-5 py-3.5 font-bold text-right">{resistance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="bg-nydo-cream pb-12 sm:pb-16" id="cotizar">
         <div className="max-w-[1280px] mx-auto px-5 sm:px-8 lg:px-14 grid grid-cols-1 md:grid-cols-[0.85fr_1.15fr] gap-10 md:gap-16 items-start">
           <div>
@@ -212,8 +266,8 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
             </p>
             <div className="flex flex-col gap-3">
               {onGoToQuoteMesh && (
-                <button type="button" onClick={onGoToQuoteMesh} className="nydo-btn nydo-btn-blue w-full">
-                  PREPARAR MI SOLICITUD ↗
+                <button type="button" onClick={onGoToQuoteMesh} className="nydo-btn w-full">
+                  Cotizar Malla
                 </button>
               )}
               <a
@@ -222,7 +276,7 @@ export const CompanyGoalAndOffer: React.FC<CompanyGoalAndOfferProps> = ({
                 rel="noopener noreferrer"
                 className="nydo-btn nydo-btn-whatsapp w-full"
               >
-                Escribir por WhatsApp
+                WhatsApp <span className="whitespace-nowrap">{CONTACT_PHONE_DISPLAY}</span>
               </a>
             </div>
             <p className="text-xs mt-4">

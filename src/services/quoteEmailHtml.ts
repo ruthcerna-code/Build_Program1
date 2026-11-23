@@ -17,6 +17,7 @@ import {
   itemNoun,
   itemTitle,
 } from '../utils/windowMeasures';
+import { ESTIMATE_DISCLAIMER, LINEAR_RULE_NOTE, estimateNarrative, formatMeters, formatPercent } from '../utils/quotePricing';
 
 const PROPERTY_LABEL: Record<string, string> = {
   departamento: 'Departamento',
@@ -189,17 +190,55 @@ function ctaBlock() {
 <p style="margin:12px 0 0 0;font-size:12px;color:#6b8494;">O responde este correo · ${esc(CONTACT_EMAIL)}</p>`;
 }
 
+function estimateBlock(quote: QuoteRequest) {
+  const e = quote.guidedQuote?.estimate;
+  if (!e) return '';
+  const spaceRows = e.spaces
+    .map(
+      (s) =>
+        infoRow(
+          `${s.label} · ${s.spaceTypeLabel}`,
+          `(${formatMeters(s.widthCm / 100)} + ${formatMeters(s.heightCm / 100)}) × ${s.faces} = ${formatMeters(s.linearMeters)} ml${
+            s.autoPillars + s.extraPillars > 0 ? ` · pilares: ${s.autoPillars} automático + ${s.extraPillars} extra` : ''
+          }`
+        )
+    )
+    .join('');
+  return `${sectionTitle('Estimación referencial')}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  ${spaceRows}
+  ${infoRow('Metros lineales facturables', `${formatMeters(e.totalLinearMeters)} ml`)}
+  ${infoRow('Malla seleccionada', `${e.mesh.label} · ${formatCLP(e.mesh.pricePerMeter)} por metro lineal`)}
+  ${infoRow('Subtotal de malla', formatCLP(e.meshSubtotal))}
+  ${infoRow('Pilares', `${e.totalPillars} × ${formatCLP(e.pillarPrice)} = ${formatCLP(e.pillarSubtotal)}`)}
+  ${infoRow('Total estimado', formatCLP(e.total))}
+  ${infoRow(`Abono inicial (${formatPercent(e.depositPercent)})`, formatCLP(e.deposit))}
+  ${infoRow('Saldo al finalizar', formatCLP(e.balance))}
+</table>
+<p style="margin:12px 0 0 0;font-size:13px;font-weight:700;color:#1f2d3a;">Cómo se calcula el valor</p>
+<ol style="margin:8px 0 0 18px;padding:0;font-size:13px;line-height:1.55;color:#1f2d3a;">
+  ${estimateNarrative(e).map((line) => `<li style="margin:0 0 6px 0;">${esc(line)}</li>`).join('')}
+</ol>
+<p style="margin:10px 0 0 0;font-size:12px;line-height:1.5;color:#6b8494;">${esc(LINEAR_RULE_NOTE)} ${esc(ESTIMATE_DISCLAIMER)}</p>`;
+}
+
 function requestInner(quote: QuoteRequest, recipient: 'client' | 'company') {
+  const estimate = quote.guidedQuote?.estimate;
   const heading =
     recipient === 'company' ? 'Nueva solicitud de cotización' : 'Recibimos tu solicitud de cotización';
   const intro =
     recipient === 'company'
-      ? `El cliente ${quote.clientName} ingresó una solicitud. Revisa las medidas, emite el presupuesto en Recepción y coordina la instalación. En este aviso no hay precio para el cliente.`
-      : `Hola ${quote.clientName}: un asesor revisará tus medidas y te enviará la cotización formal. En esta instancia no incluimos precios automáticos ni referenciales.`;
-  const status =
-    recipient === 'company'
-      ? 'En proceso · Sin precio emitido · Acción: evaluar en Recepción'
-      : 'En proceso de cotización · Sin precio emitido';
+      ? `El cliente ${quote.clientName} ingresó una solicitud. Revisa las medidas, emite el presupuesto en Recepción y coordina la instalación.${
+          estimate ? ' El cliente vio la estimación referencial que aparece abajo.' : ' En este aviso no hay precio para el cliente.'
+        }`
+      : estimate
+      ? `Hola ${quote.clientName}: abajo está la estimación referencial calculada con tus medidas. Un asesor revisará los datos en la evaluación técnica y te enviará la cotización formal con el valor final.`
+      : `Hola ${quote.clientName}: un asesor revisará tus medidas y te enviará la cotización formal.`;
+  const status = estimate
+    ? `En proceso · Estimación referencial ${formatCLP(estimate.total)} · Valor final por confirmar`
+    : recipient === 'company'
+    ? 'En proceso · Sin precio emitido · Acción: evaluar en Recepción'
+    : 'En proceso de cotización · Sin precio emitido';
 
   return `
   <!-- MENSAJE PRINCIPAL -->
@@ -224,6 +263,7 @@ function requestInner(quote: QuoteRequest, recipient: 'client' | 'company') {
   <tr>
     <td style="padding:24px 32px 8px 32px;">${measuresTable(quote)}</td>
   </tr>
+  ${estimate ? `<tr><td style="padding:24px 32px 8px 32px;">${estimateBlock(quote)}</td></tr>` : ''}
   <tr>
     <td style="padding:24px 32px 32px 32px;">
       ${sectionTitle('Siguiente paso')}
