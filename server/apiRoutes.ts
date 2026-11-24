@@ -23,6 +23,7 @@ import { loadPricingConfig, loadPricingRates, updatePricingRates } from './prici
 import { attachInstallationBudget, loadBudgetSettings, loadMarginHistory, saveCostParameters, saveMargin } from './budgetConfig';
 import { configNotice, isNetworkFailure, probeSupabase, userFacingError } from './localConfig';
 import { readLocalQuotes, saveLocalQuote } from './localQuotes';
+import { notifyMake } from './makeWebhook';
 import type { PricingConfig } from '../src/utils/quotePricing';
 import type { QuoteRequest } from '../src/types';
 
@@ -723,13 +724,34 @@ export function mountApiRoutes(app: Express) {
           error: 'Completa nombre, un correo válido, asunto y mensaje.',
         });
       }
+      // Primero se guarda el mensaje, así no se pierde si el correo falla.
+      const messageId = `msg-${Date.now()}`;
+      let saved = false;
+      try {
+        const db = requireAdminClient();
+        const { error: insertError } = await db.from('contact_messages').insert({
+          id: messageId,
+          name,
+          email,
+          phone,
+          subject,
+          message,
+          delivered: false,
+        });
+        if (insertError) throw new Error(insertError.message);
+        saved = true;
+      } catch (dbError: any) {
+        console.warn('[contact] No se guardó el mensaje en la base. Se intenta el correo igual:', dbError?.message);
+      }
+
       const mail = await sendInboxEmail(
         CONTACT_TO_EMAIL,
         `[Contáctanos] ${subject}`,
         `Nombre: ${name}\nCorreo: ${email}\nTeléfono: ${phone || 'No indicado'}\n\n${message}`,
         email
       );
-      if (!mail.sent) {
+
+      if (!mail.sent && !saved) {
         const raw = String(mail.error || '');
         return res.status(502).json({
           error: /<!doctype|<html|just a moment/i.test(raw)
@@ -739,20 +761,39 @@ export function mountApiRoutes(app: Express) {
       }
 
       markContact(ip);
-      try {
-        const db = requireAdminClient();
-        await db.from('contact_messages').insert({
-          id: `msg-${Date.now()}`,
-          name,
-          email,
-          phone,
-          subject,
-          message,
-          delivered: true,
-        });
-      } catch {
-        // El correo sí salió; no fallar la confirmación por el registro.
+      if (mail.sent && saved) {
+        try {
+          const db = requireAdminClient();
+          const { error: updateError } = await db
+            .from('contact_messages')
+            .update({ delivered: true })
+            .eq('id', messageId);
+          if (updateError) throw new Error(updateError.message);
+        } catch (dbError: any) {
+          console.warn('[contact] El correo salió pero no se marcó como entregado:', dbError?.message);
+        }
       }
+      if (!mail.sent) {
+        console.error(
+          `[contact] El correo no salió; el mensaje ${messageId} quedó guardado en contact_messages con delivered=false:`,
+          mail.error
+        );
+      }
+
+      // Complemento: aviso a Make. Se espera (máx. 5 s) para que Vercel no lo corte,
+      // pero si falla no afecta la respuesta al cliente.
+      await notifyMake({
+        tipo: 'contacto',
+        id: messageId,
+        created_at: new Date().toISOString(),
+        nombre: name,
+        email,
+        telefono: phone || null,
+        asunto: subject,
+        mensaje: message,
+        guardado_en_base: saved,
+        correo_enviado: mail.sent,
+      });
 
       res.json({ message: 'Tu mensaje fue enviado. Te responderemos a tu correo.' });
     } catch {
