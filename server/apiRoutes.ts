@@ -24,6 +24,7 @@ import { attachInstallationBudget, loadBudgetSettings, loadMarginHistory, saveCo
 import { configNotice, isNetworkFailure, probeSupabase, userFacingError } from './localConfig';
 import { readLocalQuotes, saveLocalQuote } from './localQuotes';
 import { notifyMake } from './makeWebhook';
+import { loadMakeUsage } from './makeUsage';
 import type { PricingConfig } from '../src/utils/quotePricing';
 import type { QuoteRequest } from '../src/types';
 
@@ -247,6 +248,16 @@ export function mountApiRoutes(app: Express) {
       res.json({ parameters, message: 'Parámetros de costo guardados. Las cotizaciones ya emitidas no cambian.' });
     } catch (err: any) {
       res.status(400).json({ error: err?.message || 'No pudimos guardar los parámetros de costo.' });
+    }
+  });
+
+  // Panel de uso de Make (solo lectura, solo administradora principal).
+  app.get('/api/admin/automations', requireSession, requirePrincipalAdmin, async (req, res) => {
+    try {
+      res.json(await loadMakeUsage(req.query.refresh === '1'));
+    } catch (err: any) {
+      console.error('[make] No se pudo leer el uso de Make:', err?.message);
+      res.status(502).json({ error: err?.message || 'No pudimos leer el uso de Make.' });
     }
   });
 
