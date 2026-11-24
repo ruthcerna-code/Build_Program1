@@ -20,7 +20,8 @@ export type AppView =
   | 'sales'
   | 'team'
   | 'pricing'
-  | 'commercial';
+  | 'commercial'
+  | 'automations';
 
 interface HeaderProps {
   currentView: AppView;
@@ -101,6 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
         { view: 'team', label: 'Cuentas' },
         ...(showInternalTools ? [{ view: 'pricing' as AppView, label: 'Tarifas' }] : []),
         ...(showInternalTools ? [{ view: 'commercial' as AppView, label: 'Parámetros' }] : []),
+        ...(showInternalTools ? [{ view: 'automations' as AppView, label: 'Automatizaciones' }] : []),
       ]
     : isTechnician
     ? [

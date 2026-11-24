@@ -9,6 +9,7 @@ import { SalesView } from './components/SalesView';
 import { InternalUsersView } from './components/InternalUsersView';
 import { PricingSettingsView } from './components/PricingSettingsView';
 import { CommercialSettingsView } from './components/CommercialSettingsView';
+import { AutomationUsageView } from './components/AutomationUsageView';
 import { AdminSyncBar } from './components/AdminSyncBar';
 import { TechnicianOrdersView } from './components/TechnicianOrdersView';
 import { ClientQuotePortalView } from './components/ClientQuotePortalView';
@@ -636,6 +637,13 @@ export default function App() {
             <CommercialSettingsView />
           ) : (
             <p className="text-center py-16 text-slate-600">Solo la administradora edita los parámetros comerciales.</p>
+          ))}
+
+        {currentView === 'automations' &&
+          (canManageUsers(currentUser) ? (
+            <AutomationUsageView />
+          ) : (
+            <p className="text-center py-16 text-slate-600">Solo la administradora ve las automatizaciones.</p>
           ))}
 
         {currentView === 'client_portal' && (

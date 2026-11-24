@@ -15,6 +15,10 @@ export const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY 
 export const RESEND_API_KEY = (process.env.RESEND_API_KEY || '').trim();
 export const MAIL_FROM = (process.env.MAIL_FROM || 'Nydo Mallas <noreply@nydo.cl>').trim();
 export const MAKE_WEBHOOK_URL = (process.env.MAKE_WEBHOOK_URL || '').trim();
+export const MAKE_API_TOKEN = (process.env.MAKE_API_TOKEN || '').trim();
+export const MAKE_API_ZONE = (process.env.MAKE_API_ZONE || 'us2.make.com').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+export const MAKE_ORGANIZATION_ID = (process.env.MAKE_ORGANIZATION_ID || '').trim();
+export const MAKE_TEAM_ID = (process.env.MAKE_TEAM_ID || '').trim();
 export const SITE_URL = (
   process.env.APP_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
