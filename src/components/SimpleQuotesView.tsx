@@ -22,7 +22,7 @@ interface SimpleQuotesViewProps {
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
   onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void | Promise<void>;
   onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
-  onAcceptWithSchedule?: (quoteId: string, date: string, time: string) => void | Promise<void>;
+  onAcceptWithSchedule?: (quoteId: string, date: string, time: string, notes?: string) => void | Promise<void>;
   toast?: string | null;
   banner?: React.ReactNode;
 }

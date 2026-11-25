@@ -434,10 +434,12 @@ export function mountApiRoutes(app: Express) {
         ? { ...quote.adminQuote, sentAt, sentToEmail: quote.clientEmail }
         : quote.adminQuote;
       if (adminQuote) {
-        await db.from('quotes').update({ admin_quote: adminQuote, status: 'cotizada' }).eq('id', quote.id);
+        // Reenviar el presupuesto no debe deshacer una aprobación ya registrada.
+        const keepStatus = quote.status === 'aceptada' ? 'aceptada' : 'cotizada';
+        await db.from('quotes').update({ admin_quote: adminQuote, status: keepStatus }).eq('id', quote.id);
       }
       res.json({
-        quote: { ...quote, adminQuote, status: 'cotizada' },
+        quote: { ...quote, adminQuote, status: quote.status === 'aceptada' ? 'aceptada' : 'cotizada' },
         message: mail.error
           ? mail.error
           : `Enviamos la cotización con precio a ${quote.clientEmail}.`,
@@ -522,6 +524,18 @@ export function mountApiRoutes(app: Express) {
         return res.status(409).json({ error: 'La cotización aún no está aceptada.' });
       }
 
+      // El equipo puede guardar observaciones junto con la aprobación (van en el correo).
+      if (isEditor && typeof req.body?.notes === 'string' && row.admin_quote) {
+        const noted = await db
+          .from('quotes')
+          .update({ admin_quote: { ...row.admin_quote, adminNotes: req.body.notes.trim() } })
+          .eq('id', row.id)
+          .select('*')
+          .single();
+        if (noted.error) throw new Error(noted.error.message);
+        row = noted.data;
+      }
+
       // El equipo puede fijar o cambiar la fecha y hora de instalación desde el detalle.
       if (isEditor && req.body?.date) {
         const slot = scheduleSlot(String(req.body.date), String(req.body.time || ''));
@@ -540,18 +554,7 @@ export function mountApiRoutes(app: Express) {
         row = dated.data;
       }
 
-      const scheduleQuote = {
-        id: row.id,
-        folio: row.folio,
-        clientName: row.client_name,
-        clientEmail: row.client_email,
-        clientAddress: row.client_address,
-        clientCity: row.client_city,
-        confirmedDate: row.admin_quote?.confirmedInstallationDate,
-        confirmedTime: row.admin_quote?.confirmedInstallationTime,
-        tentativeDate: row.tentative_date1,
-        tentativeTime: row.tentative_time1,
-      };
+      const scheduleQuote = mapQuoteRow(row) as unknown as QuoteRequest;
       const key = noticeKey(slotForQuote(scheduleQuote));
       const dispatch = row.email_dispatch || {};
       if (!resend && dispatch.scheduleNotice?.key === key) {

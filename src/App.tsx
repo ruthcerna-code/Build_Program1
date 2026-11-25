@@ -314,7 +314,7 @@ export default function App() {
 
   const requestScheduleNotice = async (
     quoteId: string,
-    options: { accept?: boolean; resend?: boolean; date?: string; time?: string }
+    options: { accept?: boolean; resend?: boolean; date?: string; time?: string; notes?: string }
   ) => {
     try {
       const data = await apiFetch(`/api/quotes/${quoteId}/schedule`, {
@@ -323,6 +323,9 @@ export default function App() {
       });
       if (data.quote) {
         setQuotes((prev) => prev.map((q) => (q.id === quoteId ? { ...q, ...data.quote } : q)));
+        // La copia local queda igual a la del servidor: así ninguna sincronización posterior
+        // desde el navegador devuelve la cotización a "Enviada" ni borra la fecha agendada.
+        saveQuotesToStorage(getStoredQuotes().map((q) => (q.id === quoteId ? { ...q, ...data.quote } : q)));
       }
       setAuthToast(data.mailError ? `${data.message} ${data.mailError}` : data.message || 'Listo.');
     } catch (err: any) {
@@ -347,7 +350,7 @@ export default function App() {
 
   // El equipo aprueba con la fecha y hora agendadas: lo guarda el servidor (sin sincronizar desde el
   // navegador, para no pisar la fecha) y se envía el correo con la invitación.
-  const handleAcceptWithSchedule = (quoteId: string, date: string, time: string) => {
+  const handleAcceptWithSchedule = (quoteId: string, date: string, time: string, notes?: string) => {
     setQuotes((prev) =>
       prev.map((q) =>
         q.id === quoteId
@@ -358,13 +361,18 @@ export default function App() {
               tentativeDate1: q.adminQuote ? q.tentativeDate1 : date,
               tentativeTime1: q.adminQuote ? q.tentativeTime1 : time,
               adminQuote: q.adminQuote
-                ? { ...q.adminQuote, confirmedInstallationDate: date, confirmedInstallationTime: time }
+                ? {
+                    ...q.adminQuote,
+                    confirmedInstallationDate: date,
+                    confirmedInstallationTime: time,
+                    adminNotes: notes ?? q.adminQuote.adminNotes,
+                  }
                 : q.adminQuote,
             }
           : q
       )
     );
-    return requestScheduleNotice(quoteId, { accept: true, date, time });
+    return requestScheduleNotice(quoteId, { accept: true, date, time, notes });
   };
 
   const handleUpdatePayment = (

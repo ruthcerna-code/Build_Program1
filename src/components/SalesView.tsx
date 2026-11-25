@@ -13,7 +13,7 @@ interface SalesViewProps {
   currentUser: UserAccount | null;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
   onUpdateStatus?: (quoteId: string, status: QuoteStatus) => void;
-  onAcceptWithSchedule?: (quoteId: string, date: string, time: string) => void | Promise<void>;
+  onAcceptWithSchedule?: (quoteId: string, date: string, time: string, notes?: string) => void | Promise<void>;
   onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
 }
 
