@@ -312,6 +312,25 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const requestScheduleNotice = async (
+    quoteId: string,
+    options: { accept?: boolean; resend?: boolean; date?: string; time?: string }
+  ) => {
+    try {
+      const data = await apiFetch(`/api/quotes/${quoteId}/schedule`, {
+        method: 'POST',
+        body: JSON.stringify(options),
+      });
+      if (data.quote) {
+        setQuotes((prev) => prev.map((q) => (q.id === quoteId ? { ...q, ...data.quote } : q)));
+      }
+      setAuthToast(data.mailError ? `${data.message} ${data.mailError}` : data.message || 'Listo.');
+    } catch (err: any) {
+      setAuthToast(err?.message || 'No pudimos enviar el correo de agendamiento.');
+    }
+    setTimeout(() => setAuthToast(null), 7000);
+  };
+
   const handleAcceptQuote = (quoteId: string) => {
     const updated = registerQuoteAcceptance(quoteId);
     setQuotes(updated);
@@ -319,6 +338,33 @@ export default function App() {
     if (target) {
       setSelectedQuoteForPortal(target);
     }
+    // El servidor guarda la aprobación y envía el correo con la invitación de calendario.
+    void requestScheduleNotice(quoteId, { accept: true });
+  };
+
+  const handleSendScheduleEmail = (quoteId: string, date?: string, time?: string) =>
+    requestScheduleNotice(quoteId, { resend: true, date, time });
+
+  // El equipo aprueba con la fecha y hora agendadas: lo guarda el servidor (sin sincronizar desde el
+  // navegador, para no pisar la fecha) y se envía el correo con la invitación.
+  const handleAcceptWithSchedule = (quoteId: string, date: string, time: string) => {
+    setQuotes((prev) =>
+      prev.map((q) =>
+        q.id === quoteId
+          ? {
+              ...q,
+              status: 'aceptada' as const,
+              acceptedAt: q.acceptedAt || new Date().toISOString(),
+              tentativeDate1: q.adminQuote ? q.tentativeDate1 : date,
+              tentativeTime1: q.adminQuote ? q.tentativeTime1 : time,
+              adminQuote: q.adminQuote
+                ? { ...q.adminQuote, confirmedInstallationDate: date, confirmedInstallationTime: time }
+                : q.adminQuote,
+            }
+          : q
+      )
+    );
+    return requestScheduleNotice(quoteId, { accept: true, date, time });
   };
 
   const handleUpdatePayment = (
@@ -357,7 +403,13 @@ export default function App() {
   };
 
   const handleUpdateStatus = (quoteId: string, status: QuoteStatus) => {
+    const previous = quotes.find((q) => q.id === quoteId)?.status;
     setQuotes(updateQuoteStatus(quoteId, status));
+    if (status === 'aceptada' && previous !== 'aceptada') {
+      // Al marcarla aceptada desde el admin, también se avisa al cliente con la fecha agendada.
+      void requestScheduleNotice(quoteId, { accept: true });
+      return;
+    }
     setAuthToast('Estado actualizado.');
     setTimeout(() => setAuthToast(null), 3000);
   };
@@ -529,6 +581,8 @@ export default function App() {
               onAcceptQuote={handleAcceptQuote}
               onRegisterPayment={handleRegisterPayment}
               onSendEmail={handleSendQuoteEmail}
+              onSendScheduleEmail={handleSendScheduleEmail}
+              onAcceptWithSchedule={handleAcceptWithSchedule}
               toast={authToast}
             />
           )
@@ -591,6 +645,8 @@ export default function App() {
               onDeleteQuote={handleSoftDelete}
               onRegisterPayment={handleRegisterPayment}
               onSendEmail={handleSendQuoteEmail}
+              onSendScheduleEmail={handleSendScheduleEmail}
+              onAcceptWithSchedule={handleAcceptWithSchedule}
               toast={authToast}
             />
           ) : (
@@ -613,6 +669,9 @@ export default function App() {
               quotes={quotes}
               currentUser={currentUser}
               onRegisterPayment={handleRegisterPayment}
+              onUpdateStatus={handleUpdateStatus}
+              onAcceptWithSchedule={handleAcceptWithSchedule}
+              onSendScheduleEmail={handleSendScheduleEmail}
             />
           ) : (
             <p className="text-center py-16 text-slate-600">No tienes permiso para ver ventas.</p>

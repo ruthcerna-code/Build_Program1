@@ -11,6 +11,13 @@ import type { QuoteRequest } from '../src/types';
 
 type MailKind = 'request' | 'priced';
 
+export interface MailAttachment {
+  filename: string;
+  /** Contenido en base64. */
+  content: string;
+  content_type?: string;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -41,7 +48,8 @@ async function postResendEmail(
   subject: string,
   text: string,
   replyTo?: string,
-  html?: string
+  html?: string,
+  attachments?: MailAttachment[]
 ): Promise<{ sent: boolean; error?: string; blockedTest?: boolean }> {
   if (!RESEND_API_KEY) {
     return { sent: false, error: 'El envío de correo aún no está configurado.' };
@@ -60,6 +68,7 @@ async function postResendEmail(
         subject,
         text,
         html: html || toHtml(text),
+        ...(attachments?.length ? { attachments } : {}),
       }),
     });
     if (sendRes.ok) return { sent: true };
@@ -244,4 +253,16 @@ export async function sendQuoteRequestEmail(
   } catch {
     return { sent: false, error: 'No pudimos conectar con el servicio de correo.' };
   }
+}
+
+/** Envía un correo directo al cliente (por Resend), con adjuntos opcionales. */
+export async function sendClientEmail(
+  to: string,
+  subject: string,
+  text: string,
+  html: string,
+  attachments?: MailAttachment[]
+): Promise<{ sent: boolean; error?: string }> {
+  const result = await postResendEmail(to.trim().toLowerCase(), subject, text, QUOTE_COPY_EMAIL, html, attachments);
+  return { sent: result.sent, error: result.error };
 }

@@ -7,6 +7,7 @@ import { QuoteDetailModal } from './QuoteDetailModal';
 import { canDeleteQuotes, canEditQuotes, canViewHistory } from '../services/permissions';
 import { formatAreaM2 } from '../utils/windowMeasures';
 import { sentClientTotal } from '../utils/installationBudget';
+import { ScheduleCell, scheduledSlot } from './ops/ScheduleCell';
 import { EmptyState, KpiCard, Notice, OpsPageHeader, PaymentBadge, StatusBadge } from './ops/OpsUi';
 
 interface SimpleQuotesViewProps {
@@ -20,6 +21,8 @@ interface SimpleQuotesViewProps {
   onAcceptQuote?: (quoteId: string) => void;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
   onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void | Promise<void>;
+  onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
+  onAcceptWithSchedule?: (quoteId: string, date: string, time: string) => void | Promise<void>;
   toast?: string | null;
   banner?: React.ReactNode;
 }
@@ -108,6 +111,8 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
   onAcceptQuote,
   onRegisterPayment,
   onSendEmail,
+  onSendScheduleEmail,
+  onAcceptWithSchedule,
   toast,
   banner,
 }) => {
@@ -325,7 +330,7 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
                     <th scope="col">N° cotización</th>
                     <th scope="col">Cliente</th>
                     <th scope="col">Solicitud</th>
-                    {accepted ? <th scope="col">Respuesta</th> : <th scope="col">Medidas</th>}
+                    {accepted ? <th scope="col">Instalación agendada</th> : <th scope="col">Medidas</th>}
                     <th scope="col" className="!text-right">Importe</th>
                     <th scope="col">{accepted ? 'Pago' : 'Estado'}</th>
                     <th scope="col" className="w-px">
@@ -357,7 +362,7 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
                         </td>
                         {accepted ? (
                           <td>
-                            <DateCell iso={quoteResponseAt(q)} />
+                            <ScheduleCell quote={q} />
                           </td>
                         ) : (
                           <td className="whitespace-nowrap text-nydo-ink/75">{measuresLabel(q)}</td>
@@ -374,6 +379,11 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
                         </td>
                         <td>
                           {accepted ? <PaymentBadge status={q.paymentStatus} /> : <StatusBadge status={q.status} />}
+                          {!accepted && q.status === 'aceptada' && (
+                            <span className="mt-1 block text-xs">
+                              <ScheduleCell quote={q} />
+                            </span>
+                          )}
                         </td>
                         <td>
                           <button
@@ -413,6 +423,16 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
                         </span>
                         <span className="mt-1.5 flex flex-wrap items-center gap-2">
                           {accepted ? <PaymentBadge status={q.paymentStatus} /> : <StatusBadge status={q.status} />}
+                          {q.status === 'aceptada' && (
+                            <span className="text-xs font-semibold">
+                              {(() => {
+                                const slot = scheduledSlot(q);
+                                if (!slot) return 'Sin agendar';
+                                const [y, m, d] = slot.date.split('-');
+                                return `Instala ${d}/${m}/${y} · ${slot.time}`;
+                              })()}
+                            </span>
+                          )}
                           {waiting && (
                             <span className={`text-xs font-bold ${waiting.urgent ? 'text-nydo-orange' : 'text-nydo-ink/55'}`}>
                               {waiting.text}
@@ -449,6 +469,8 @@ export const SimpleQuotesView: React.FC<SimpleQuotesViewProps> = ({
           onAcceptQuote={onAcceptQuote}
           onRegisterPayment={onRegisterPayment}
           onSendEmail={onSendEmail}
+          onSendScheduleEmail={onSendScheduleEmail}
+          onAcceptWithSchedule={onAcceptWithSchedule}
         />
       )}
     </section>
