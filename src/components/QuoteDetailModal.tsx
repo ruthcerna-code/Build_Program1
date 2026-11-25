@@ -42,7 +42,7 @@ interface QuoteDetailModalProps {
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
   onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void | Promise<void>;
   onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
-  onAcceptWithSchedule?: (quoteId: string, date: string, time: string) => void | Promise<void>;
+  onAcceptWithSchedule?: (quoteId: string, date: string, time: string, notes?: string) => void | Promise<void>;
 }
 
 const Section: React.FC<{ title: string; children: React.ReactNode; aside?: React.ReactNode }> = ({
@@ -239,8 +239,9 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
                     setAcceptError('Para aprobar, indica la fecha y la hora agendadas con el cliente.');
                     return;
                   }
-                  onUpdateNotes?.(quote.id, notes, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
-                  if (onAcceptWithSchedule) onAcceptWithSchedule(quote.id, slot.date, slot.time);
+                  // Las observaciones viajan con la aprobación (no se sincronizan aparte desde el
+                  // navegador, para no pisar el estado aprobado que guarda el servidor).
+                  if (onAcceptWithSchedule) onAcceptWithSchedule(quote.id, slot.date, slot.time, notes);
                   else onUpdateStatus?.(quote.id, status);
                   onClose();
                   return;
@@ -249,12 +250,12 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
                 onUpdateNotes?.(quote.id, notes, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
                 onClose();
               }}
-              className="ops-btn ops-btn-dark"
+              className={acceptingNow ? 'ops-btn ops-btn-primary' : 'ops-btn ops-btn-dark'}
             >
-              Guardar cambios
+              {acceptingNow ? 'Aprobar y agendar visita' : 'Guardar cambios'}
             </button>
           )}
-          {canEdit && onSendEmail && (
+          {canEdit && onSendEmail && !acceptingNow && (
             <button
               type="button"
               disabled={sending}
@@ -466,8 +467,8 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
                   </label>
                 </div>
                 <p className="text-xs text-nydo-ink/60">
-                  Al guardar, la cotización queda aprobada con esta fecha y el cliente recibe el correo con la invitación
-                  a su calendario.
+                  Al presionar «Aprobar y agendar visita», la cotización queda aprobada con esta fecha y el cliente recibe
+                  el correo con la fecha, el detalle del trabajo, las observaciones y la invitación a su calendario.
                 </p>
                 {acceptError && (
                   <p role="alert" className="text-sm font-bold text-[#9f1d24]">
