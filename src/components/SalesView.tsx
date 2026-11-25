@@ -1,19 +1,30 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronRight, Search, X } from 'lucide-react';
-import { QuoteRequest, UserAccount } from '../types';
+import { QuoteRequest, QuoteStatus, UserAccount } from '../types';
 import { formatCurrency } from '../services/quoteStorage';
 import { QUOTE_STATUS_OPTIONS } from '../constants/quoteStatus';
 import { QuoteDetailModal } from './QuoteDetailModal';
 import { canEditQuotes } from '../services/permissions';
 import { EmptyState, KpiCard, OpsPageHeader, PaymentBadge, StatusBadge } from './ops/OpsUi';
+import { ScheduleCell } from './ops/ScheduleCell';
 
 interface SalesViewProps {
   quotes: QuoteRequest[];
   currentUser: UserAccount | null;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
+  onUpdateStatus?: (quoteId: string, status: QuoteStatus) => void;
+  onAcceptWithSchedule?: (quoteId: string, date: string, time: string) => void | Promise<void>;
+  onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
 }
 
-export const SalesView: React.FC<SalesViewProps> = ({ quotes, currentUser, onRegisterPayment }) => {
+export const SalesView: React.FC<SalesViewProps> = ({
+  quotes,
+  currentUser,
+  onRegisterPayment,
+  onUpdateStatus,
+  onAcceptWithSchedule,
+  onSendScheduleEmail,
+}) => {
   const [client, setClient] = useState('');
   const [from, setFrom] = useState('');
   const [selected, setSelected] = useState<QuoteRequest | null>(null);
@@ -135,6 +146,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ quotes, currentUser, onReg
                     <th scope="col">Cliente</th>
                     <th scope="col">Estado</th>
                     <th scope="col">Pago</th>
+                    <th scope="col">Instalación</th>
                     <th scope="col" className="!text-right">Cotizado</th>
                     <th scope="col" className="!text-right">Cobrado</th>
                     <th scope="col" className="!text-right">Saldo</th>
@@ -159,6 +171,9 @@ export const SalesView: React.FC<SalesViewProps> = ({ quotes, currentUser, onReg
                         </td>
                         <td>
                           <PaymentBadge status={q.paymentStatus} />
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {q.status === 'aceptada' ? <ScheduleCell quote={q} /> : <span className="text-nydo-ink/40">—</span>}
                         </td>
                         <td className="ops-num font-semibold">{q.adminQuote ? formatCurrency(total) : '—'}</td>
                         <td className="ops-num">{formatCurrency(paid)}</td>
@@ -200,6 +215,11 @@ export const SalesView: React.FC<SalesViewProps> = ({ quotes, currentUser, onReg
                       <span className="mt-1.5 flex flex-wrap gap-2">
                         <StatusBadge status={q.status} />
                         <PaymentBadge status={q.paymentStatus} />
+                        {q.status === 'aceptada' && (
+                          <span className="text-xs">
+                            <ScheduleCell quote={q} />
+                          </span>
+                        )}
                       </span>
                     </span>
                     <span className="shrink-0 text-right text-sm tabular-nums">
@@ -223,6 +243,9 @@ export const SalesView: React.FC<SalesViewProps> = ({ quotes, currentUser, onReg
           showHistory={true}
           onClose={() => setSelected(null)}
           onRegisterPayment={onRegisterPayment}
+          onUpdateStatus={onUpdateStatus}
+          onAcceptWithSchedule={onAcceptWithSchedule}
+          onSendScheduleEmail={onSendScheduleEmail}
         />
       )}
     </section>

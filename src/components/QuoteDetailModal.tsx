@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Mail, Phone, Send } from 'lucide-react';
+import { CalendarCheck, Mail, MessageCircle, Phone, Send } from 'lucide-react';
+import {
+  DEFAULT_INSTALLATION_TIME,
+  formatSlot,
+  normalizeDate,
+  normalizeTime,
+  scheduleSlot,
+  scheduleWhatsappText,
+  scheduleWhatsappUrl,
+} from '../utils/installationSchedule';
 import { QuoteRequest, QuoteStatus, UserAccount } from '../types';
 import { DetailModal } from './DetailModal';
 import { QUOTE_STATUS_OPTIONS, quoteStatusLabel } from '../constants/quoteStatus';
@@ -32,6 +41,8 @@ interface QuoteDetailModalProps {
   onAcceptQuote?: (quoteId: string) => void;
   onRegisterPayment?: (quoteId: string, amount: number, method?: string, notes?: string) => void;
   onSendEmail?: (quoteId: string, details?: { total?: number; notes?: string }) => void | Promise<void>;
+  onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
+  onAcceptWithSchedule?: (quoteId: string, date: string, time: string) => void | Promise<void>;
 }
 
 const Section: React.FC<{ title: string; children: React.ReactNode; aside?: React.ReactNode }> = ({
@@ -54,6 +65,85 @@ const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, 
     <dd className="mt-0.5 font-semibold text-nydo-ink break-words">{children}</dd>
   </div>
 );
+
+/** Fecha y hora de instalación + correo con invitación + aviso por WhatsApp (solo equipo). */
+const ScheduleSection: React.FC<{
+  quote: QuoteRequest;
+  onSendScheduleEmail?: (quoteId: string, date?: string, time?: string) => void | Promise<void>;
+}> = ({ quote, onSendScheduleEmail }) => {
+  const current = scheduleSlot(
+    quote.adminQuote?.confirmedInstallationDate || quote.tentativeDate1,
+    quote.adminQuote?.confirmedInstallationTime || quote.tentativeTime1
+  );
+  const [date, setDate] = useState(current?.date || '');
+  const [time, setTime] = useState(current?.time || DEFAULT_INSTALLATION_TIME);
+  const [sending, setSending] = useState(false);
+  const typed = scheduleSlot(date, time);
+  const address = [quote.clientAddress, quote.guidedQuote?.commune || quote.clientCity].filter(Boolean).join(', ');
+  const whatsappUrl = scheduleWhatsappUrl(quote.clientPhone || '', scheduleWhatsappText(quote.clientName, typed, address));
+  const notice = (quote.emailDispatch as { scheduleNotice?: { sentAt?: string; key?: string } } | undefined)
+    ?.scheduleNotice;
+
+  return (
+    <Section
+      title="Agendamiento"
+      aside={
+        notice?.sentAt ? (
+          <span className="text-xs text-nydo-ink/60">Correo enviado {formatDateTime(notice.sentAt)}</span>
+        ) : (
+          <span className="text-xs text-nydo-ink/60">Correo de agendamiento sin enviar</span>
+        )
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="ops-label mb-1">Fecha de instalación</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="ops-input" />
+        </label>
+        <label className="block">
+          <span className="ops-label mb-1">Hora</span>
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="ops-input" />
+        </label>
+      </div>
+      <p className="text-sm text-nydo-ink/70">
+        {typed
+          ? `Se agenda para el ${formatSlot(typed)} (duración estimada 2 h).`
+          : 'Sin fecha: el correo avisa que coordinarás la instalación.'}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {onSendScheduleEmail && (
+          <button
+            type="button"
+            disabled={sending}
+            className="ops-btn ops-btn-primary"
+            onClick={async () => {
+              setSending(true);
+              try {
+                await onSendScheduleEmail(quote.id, typed?.date, typed?.time);
+              } finally {
+                setSending(false);
+              }
+            }}
+          >
+            <CalendarCheck className="h-4 w-4" />
+            {sending ? 'Enviando…' : 'Enviar correo con invitación'}
+          </button>
+        )}
+        {whatsappUrl ? (
+          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="ops-btn nydo-btn-whatsapp">
+            <MessageCircle className="h-4 w-4" />
+            Avisar por WhatsApp
+          </a>
+        ) : (
+          <span className="text-sm text-nydo-ink/60">El teléfono del cliente no es un celular chileno válido para WhatsApp.</span>
+        )}
+      </div>
+      <p className="text-xs text-nydo-ink/60">
+        WhatsApp se abre con el número del cliente y el mensaje listo; revisa y presiona Enviar desde tu WhatsApp.
+      </p>
+    </Section>
+  );
+};
 
 function formatDateTime(iso?: string) {
   if (!iso) return 'Sin registro';
@@ -82,11 +172,21 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
   onAcceptQuote,
   onRegisterPayment,
   onSendEmail,
+  onSendScheduleEmail,
+  onAcceptWithSchedule,
 }) => {
   const [notes, setNotes] = useState(quote.adminQuote?.adminNotes || quote.clientComments || '');
   const sentTotal = sentClientTotal(quote.guidedQuote?.installationBudget);
   const [total, setTotal] = useState(String(quote.adminQuote?.total || sentTotal || ''));
   const [status, setStatus] = useState<QuoteStatus>(quote.status);
+  const [acceptDate, setAcceptDate] = useState(
+    normalizeDate(quote.adminQuote?.confirmedInstallationDate || quote.tentativeDate1) || ''
+  );
+  const [acceptTime, setAcceptTime] = useState(
+    normalizeTime(quote.adminQuote?.confirmedInstallationTime || quote.tentativeTime1) || DEFAULT_INSTALLATION_TIME
+  );
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const acceptingNow = canEdit && status === 'aceptada' && quote.status !== 'aceptada';
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -132,8 +232,20 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                onUpdateStatus?.(quote.id, status);
                 const parsed = Number(total);
+                if (acceptingNow) {
+                  const slot = scheduleSlot(acceptDate, acceptTime);
+                  if (!slot || !normalizeTime(acceptTime)) {
+                    setAcceptError('Para aprobar, indica la fecha y la hora agendadas con el cliente.');
+                    return;
+                  }
+                  onUpdateNotes?.(quote.id, notes, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
+                  if (onAcceptWithSchedule) onAcceptWithSchedule(quote.id, slot.date, slot.time);
+                  else onUpdateStatus?.(quote.id, status);
+                  onClose();
+                  return;
+                }
+                onUpdateStatus?.(quote.id, status);
                 onUpdateNotes?.(quote.id, notes, Number.isFinite(parsed) && parsed > 0 ? parsed : undefined);
                 onClose();
               }}
@@ -306,7 +418,14 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="ops-label mb-1">Estado</span>
-              <select value={status} onChange={(e) => setStatus(e.target.value as QuoteStatus)} className="ops-input">
+              <select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value as QuoteStatus);
+                  setAcceptError(null);
+                }}
+                className="ops-input"
+              >
                 {QUOTE_STATUS_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {quoteStatusLabel(s)}
@@ -314,6 +433,49 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
                 ))}
               </select>
             </label>
+            {acceptingNow && (
+              <div className="sm:col-span-2 rounded-xl border border-nydo-ink/15 bg-[#fbf6f1] p-3 space-y-2">
+                <p className="text-sm font-bold">Instalación agendada con el cliente</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="ops-label mb-1">Fecha</span>
+                    <input
+                      type="date"
+                      required
+                      value={acceptDate}
+                      onChange={(e) => {
+                        setAcceptDate(e.target.value);
+                        setAcceptError(null);
+                      }}
+                      aria-invalid={Boolean(acceptError && !acceptDate)}
+                      className="ops-input"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="ops-label mb-1">Hora</span>
+                    <input
+                      type="time"
+                      required
+                      value={acceptTime}
+                      onChange={(e) => {
+                        setAcceptTime(e.target.value);
+                        setAcceptError(null);
+                      }}
+                      className="ops-input"
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-nydo-ink/60">
+                  Al guardar, la cotización queda aprobada con esta fecha y el cliente recibe el correo con la invitación
+                  a su calendario.
+                </p>
+                {acceptError && (
+                  <p role="alert" className="text-sm font-bold text-[#9f1d24]">
+                    {acceptError}
+                  </p>
+                )}
+              </div>
+            )}
             <label className="block">
               <span className="ops-label mb-1">Importe (CLP)</span>
               <span className="relative block">
@@ -345,6 +507,10 @@ export const QuoteDetailModal: React.FC<QuoteDetailModalProps> = ({
             «Guardar cambios» solo actualiza la ficha. «Enviar al correo del cliente» guarda y envía la cotización.
           </p>
         </Section>
+      )}
+
+      {canEdit && quote.status === 'aceptada' && (
+        <ScheduleSection quote={quote} onSendScheduleEmail={onSendScheduleEmail} />
       )}
 
       {canEdit && onRegisterPayment && (

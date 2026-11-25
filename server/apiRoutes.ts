@@ -25,6 +25,8 @@ import { configNotice, isNetworkFailure, probeSupabase, userFacingError } from '
 import { readLocalQuotes, saveLocalQuote } from './localQuotes';
 import { notifyMake } from './makeWebhook';
 import { loadMakeUsage } from './makeUsage';
+import { noticeKey, sendScheduleEmail, slotForQuote } from './scheduleNotice';
+import { scheduleSlot } from '../src/utils/installationSchedule';
 import type { PricingConfig } from '../src/utils/quotePricing';
 import type { QuoteRequest } from '../src/types';
 
@@ -79,6 +81,8 @@ function mapQuoteRow(row: any) {
     clientCity: row.client_city,
     propertyType: row.property_type,
     clientComments: row.client_comments,
+    tentativeDate1: row.tentative_date1 || undefined,
+    tentativeTime1: row.tentative_time1 || undefined,
     totalAreaM2: Number(row.total_area_m2) || 0,
     status: row.status,
     acceptedAt: row.accepted_at,
@@ -454,6 +458,145 @@ export function mountApiRoutes(app: Express) {
       res.json({ quotes });
     } catch (err: any) {
       res.status(503).json({ error: err?.message || 'No pudimos consultar las cotizaciones.' });
+    }
+  });
+
+  // Aprobación de la cotización + correo de agendamiento con invitación de calendario.
+  // body.accept: el cliente (o el equipo) aprueba la cotización enviada.
+  // body.resend: el equipo vuelve a enviar el correo aunque ya se haya avisado esa fecha.
+  app.post('/api/quotes/:id/schedule', requireSession, async (req, res) => {
+    try {
+      const user = getSessionUser(req)!;
+      const db = requireAdminClient();
+      const { data: existing, error: findError } = await db
+        .from('quotes')
+        .select('*')
+        .eq('id', req.params.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (findError || !existing) {
+        return res.status(404).json({ error: 'No encontramos esa cotización.' });
+      }
+
+      const isEditor = canEditQuotes(user);
+      const email = user.email.toLowerCase();
+      const isOwner = [existing.owner_email, existing.client_email].some(
+        (value) => String(value || '').toLowerCase() === email
+      );
+      if (!isEditor && !isOwner) {
+        return res.status(403).json({ error: 'No tienes permiso sobre esta cotización.' });
+      }
+
+      const accept = req.body?.accept === true;
+      const resend = req.body?.resend === true && isEditor;
+      let row = existing;
+
+      if (accept && existing.status !== 'aceptada') {
+        if (!isEditor && existing.status !== 'cotizada') {
+          return res.status(409).json({ error: 'Esta cotización todavía no está lista para aprobar.' });
+        }
+        const history = Array.isArray(existing.change_history) ? existing.change_history : [];
+        history.unshift({
+          id: `ev-${Date.now()}`,
+          at: new Date().toISOString(),
+          actorEmail: user.email,
+          actorName: user.name,
+          action: 'Aprobar',
+          detail: isEditor ? 'Cotización marcada como aceptada' : 'El cliente aprobó la cotización',
+        });
+        const updated = await db
+          .from('quotes')
+          .update({
+            status: 'aceptada',
+            accepted_at: existing.accepted_at || new Date().toISOString(),
+            change_history: history.slice(0, 50),
+          })
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+        if (updated.error) throw new Error(updated.error.message);
+        row = updated.data;
+      }
+
+      if (row.status !== 'aceptada') {
+        return res.status(409).json({ error: 'La cotización aún no está aceptada.' });
+      }
+
+      // El equipo puede fijar o cambiar la fecha y hora de instalación desde el detalle.
+      if (isEditor && req.body?.date) {
+        const slot = scheduleSlot(String(req.body.date), String(req.body.time || ''));
+        if (!slot) return res.status(400).json({ error: 'La fecha de instalación no es válida.' });
+        const changes: Record<string, unknown> = row.admin_quote
+          ? {
+              admin_quote: {
+                ...row.admin_quote,
+                confirmedInstallationDate: slot.date,
+                confirmedInstallationTime: slot.time,
+              },
+            }
+          : { tentative_date1: slot.date, tentative_time1: slot.time };
+        const dated = await db.from('quotes').update(changes).eq('id', row.id).select('*').single();
+        if (dated.error) throw new Error(dated.error.message);
+        row = dated.data;
+      }
+
+      const scheduleQuote = {
+        id: row.id,
+        folio: row.folio,
+        clientName: row.client_name,
+        clientEmail: row.client_email,
+        clientAddress: row.client_address,
+        clientCity: row.client_city,
+        confirmedDate: row.admin_quote?.confirmedInstallationDate,
+        confirmedTime: row.admin_quote?.confirmedInstallationTime,
+        tentativeDate: row.tentative_date1,
+        tentativeTime: row.tentative_time1,
+      };
+      const key = noticeKey(slotForQuote(scheduleQuote));
+      const dispatch = row.email_dispatch || {};
+      if (!resend && dispatch.scheduleNotice?.key === key) {
+        return res.json({
+          quote: mapQuoteRow(row),
+          mailSent: false,
+          alreadySent: true,
+          message: 'Cotización aprobada. El correo de agendamiento ya se había enviado.',
+        });
+      }
+
+      const mail = await sendScheduleEmail(scheduleQuote);
+      if (!mail.sent) {
+        console.error(`[schedule] No se envió el correo de agendamiento de ${row.folio}:`, mail.error);
+        return res.json({
+          quote: mapQuoteRow(row),
+          mailSent: false,
+          mailError: mail.error || null,
+          message: 'Cotización aprobada, pero no pudimos enviar el correo de agendamiento.',
+        });
+      }
+
+      const saved = await db
+        .from('quotes')
+        .update({
+          email_dispatch: {
+            ...dispatch,
+            scheduleNotice: { key, to: row.client_email, sentAt: new Date().toISOString(), by: user.email },
+          },
+        })
+        .eq('id', row.id)
+        .select('*')
+        .single();
+      if (saved.error) console.warn('[schedule] El correo salió pero no se registró el envío:', saved.error.message);
+
+      res.json({
+        quote: mapQuoteRow(saved.data || row),
+        mailSent: true,
+        message: mail.slot
+          ? `Correo de agendamiento enviado a ${row.client_email}.`
+          : `Cotización aprobada. Avisamos a ${row.client_email} que coordinaremos la fecha.`,
+      });
+    } catch (err: any) {
+      console.error('[schedule] Error:', err?.message);
+      res.status(503).json({ error: err?.message || 'No pudimos registrar la aprobación.' });
     }
   });
 
